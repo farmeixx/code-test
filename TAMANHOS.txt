@@ -1,0 +1,13 @@
+TAMANHOS FIXOS DOS ROOTFS LOCAIS
+
+Todos os tres rootfs locais ficam fixos em 1024 MiB, alinhados com o builder
+upstream atual da branch rootfs (distros/<distro>/build.sh):
+
+Alpine: 1024 MiB (1073741824 bytes), minimo livre 32 MiB, 16384 inodes, journal 8 MiB.
+Debian: 1024 MiB (1073741824 bytes), minimo livre 64 MiB, 32768 inodes, journal 16 MiB.
+Ubuntu: 1024 MiB (1073741824 bytes), minimo livre 64 MiB, 32768 inodes, journal 16 MiB.
+
+Essas dimensoes sao verificadas durante a criacao do ext4, nao somente apos.
+Se a imagem nao comportar o rootfs com a folga exigida, o build falha com erro.
+Sem compressao final (o rootfs local fica .ext4 cru, nao .zst). Reutiliza kernel
+e modulos. Nao altera sources originais.

@@ -1,0 +1,7 @@
+# local builder artifacts never go back to git
+build/*
+!build/README.md
+cache/*
+!cache/README.md
+sources/*
+!sources/README.md
