@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# LOCAL kernel builder: persistent sources, modules and checkpoint; compiler cache optional.
-# Drives the CURRENT upstream builder (sh/build.sh + sh/bootimg.sh, everything
-# device-specific coming from the repository conf logic).
+# LOCAL kernel builder (no host dependency installation): persistent sources,
+# modules and checkpoint; compiler cache optional. Drives the CURRENT upstream
+# builder (sh/build.sh + sh/bootimg.sh, everything device-specific coming from
+# the repository conf logic).
 set -Eeuo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/common.sh"
 usage(){ cat <<EOF
@@ -18,21 +19,20 @@ EOF
 mode="${1:-build}"
 case "$mode" in build|--force|--reuse) ;; -h|--help|help) usage; exit 0;; *) usage; exit 2;; esac
 
-bootstrap_tools
-acquire_lock
 if [ "$mode" = --reuse ]; then
+  acquire_lock
   krel="$(ensure_checkpoint)"
   say "Kernel checkpoint already available: $krel. No compilation performed."
   exit 0
 fi
 
+# Host dependencies are already installed by the user; see REQUISITOS.txt.
+# Tools are verified fail-closed BEFORE anything runs (nothing is ever
+# installed here). --reuse is exempt: reusing a checkpoint never compiles.
+require_tools kernel
+acquire_lock
 prepare_repo_branch main
 MAIN="$SOURCES/recipes/main"
-source "$MAIN/sh/deps.sh"
-install_host_deps kernel
-command -v ccache >/dev/null || die 'ccache missing after host dependency installation.'
-command -v fdtget >/dev/null || die 'fdtget missing.'
-command -v zstd >/dev/null || die 'zstd missing.'
 
 # Device configuration follows the repository conf logic. A KERNEL_MAINLINE_CONF
 # override may point to a local file (for example inside conf/ of this builder).
@@ -50,7 +50,7 @@ source "$CONF_PATH"
 : "${KERNEL_MKBOOTIMG_REF:?KERNEL_MKBOOTIMG_REF is required in mainline.conf}"
 DTB_BASENAME="${KERNEL_DTB##*/}"
 
-# Fullyconfigured persistent compiler cache, shared between every rebuild.
+# Persistent compiler cache, shared between every rebuild.
 export CCACHE_DIR="$CACHE/mainline/ccache" CCACHE_MAXSIZE="${CCACHE_MAXSIZE:-2G}" CCACHE_COMPRESS=true
 mkdir -p "$CCACHE_DIR" "$MODULE_CACHE" "$BUILDS/mainline" "$CACHE/mainline"
 ccache --max-size "$CCACHE_MAXSIZE"

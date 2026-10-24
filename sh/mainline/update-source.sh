@@ -6,7 +6,6 @@ if [ "${1:-}" = --help ]; then
  echo 'Usage: bash sh/mainline/update-source.sh  (fetch new upstream kernel commit; no compilation)'; exit 0
 fi
 [ "$#" -eq 0 ] || die 'Usage: bash sh/mainline/update-source.sh'
-bootstrap_tools
 acquire_lock
 KERNEL_DIR="$SOURCES/linux"
 [ -d "$KERNEL_DIR/.git" ] || die 'Kernel source not cloned yet. First run sh/mainline/build.sh.'

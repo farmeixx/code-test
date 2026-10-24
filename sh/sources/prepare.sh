@@ -12,7 +12,6 @@ EOF
 branch="${1:-all}"; mode="${2:-}"
 case "$branch" in main|rootfs|all) ;; --help|-h|help) usage; exit 0;; *) usage; exit 2;; esac
 case "$mode" in ''|--update) ;; *) usage; exit 2;; esac
-bootstrap_tools
 acquire_lock
 if [ "$branch" = all ]; then branches=(main rootfs); else branches=("$branch"); fi
 for b in "${branches[@]}"; do

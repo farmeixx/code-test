@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Run a single local distro from the REAL upstream builder, using cached kernel modules.
-# Order mirrors the upstream sh/run.sh: cheap validation and firmware check
-# BEFORE installing any host dependency.
+# The host dependencies are the user's responsibility (REQUISITOS.txt): this variant
+# only VERIFIES the tools and never installs anything itself.
 set -Eeuo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/common.sh"
 DISTRO="alpine"
@@ -13,16 +13,14 @@ EOF
 }
 case "${1:-}" in '' ) ;; -h|--help|help) usage; exit 0;; *) usage; exit 2;; esac
 
-bootstrap_tools
 acquire_lock
 KREL="$(ensure_checkpoint)"
+require_tools "$DISTRO"
 prepare_repo_branch rootfs
 ROOTFS_SRC="$SOURCES/recipes/rootfs"
 
 KERNEL_CHECKPOINT_DIR="$CHECKPOINT" bash "$ROOTFS_SRC/sh/validate.sh" --basic
 bash "$ROOTFS_SRC/sh/firmware.sh" check
-source "$ROOTFS_SRC/sh/deps.sh"
-install_host_deps "$DISTRO"
 
 KERNEL_CHECKPOINT_DIR="$CHECKPOINT" bash "$ROOTFS_SRC/sh/validate.sh" --full
 

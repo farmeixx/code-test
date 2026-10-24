@@ -105,6 +105,25 @@ else
   echo "FAIL: exit=$rc output: $out"; fail=$((fail + 1))
 fi
 
+echo '== 10) sh/mainline/build.sh without tools -> variant never installs deps, exit 1'
+# BASH_ENV sandbox (seen only by the child bash): shadows the non-special
+# `command` builtin so EVERY tool check fails. Deterministic on every host,
+# even when the full toolchain IS installed: the variant must die with the
+# REQUISITOS.txt guidance instead of installing anything. Nothing is
+# installed, no clone, no build.
+sandbox="$(mktemp "${TMPDIR:-/tmp}/builder-test-sandbox-XXXXXX")"
+printf 'command() { return 1; }\n' > "$sandbox"
+set +e
+out="$(BASH_ENV="$sandbox" bash "$HERE/sh/mainline/build.sh" 2>&1)"
+rc=$?
+set -e
+rm -f "$sandbox"
+if [ "$rc" -eq 1 ] && printf '%s\n' "$out" | grep -q 'never installs host dependencies'; then
+  echo "ok: exit=$rc, no dependency installation path"
+else
+  echo "FAIL: exit=$rc output: $out"; fail=$((fail + 1))
+fi
+
 if [ "$fail" -gt 0 ]; then
   echo "BUILDER SELF-TEST FAILED ($fail failures)"; exit 1
 fi

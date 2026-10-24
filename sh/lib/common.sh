@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Common LOCAL-only helpers. No GitHub Actions, workflow runs, dispatches, or cloud jobs.
+# LOCAL-only helpers (user-supplied host tools; nothing is ever installed).
 # Aligned with the CURRENT repository logic: sh/run.sh orchestration, conf/*.conf
 # device configuration and the distros/ recipe layout on the rootfs branch.
 set -Eeuo pipefail
@@ -16,41 +16,34 @@ export LC_ALL=C
 say() { printf '\n[%s] %s\n' "$DEVICE" "$*"; }
 die() { printf '\nERROR [%s]: %s\n' "$DEVICE" "$*" >&2; exit 1; }
 
-# Root container without a sudo binary (minimal images): run apt directly.
-# Normal users always go through sudo. Upstream scripts call sudo directly,
-# so bootstrap_tools also installs sudo for the missing-binary case.
-run_root() {
-  if [ "$(id -u)" -eq 0 ] && ! command -v sudo >/dev/null; then
-    "$@"
-  else
-    sudo "$@"
-  fi
-}
-
-require_linux() {
-  [ "$(uname -s)" = Linux ] && [ "$(uname -m)" = x86_64 ] || die 'Requires Linux x86_64 (Debian, Ubuntu, Mint or any apt-based distro; WSL2 works).'
-  command -v apt-get >/dev/null && command -v dpkg >/dev/null || die 'Requires an apt-based distro (apt-get and dpkg must exist).'
-  if [ "$(id -u)" -ne 0 ]; then
-    command -v sudo >/dev/null || die 'Requires sudo. Run as a normal sudo-enabled user.'
-  fi
-}
-
-bootstrap_tools() {
-  require_linux
+# The variant identity: the host is prepared by the USER (REQUISITOS.txt);
+# this builder only verifies. README documents the list.
+require_tools() {
+  local phase="$1"
+  [ "$(uname -s)" = Linux ] && [ "$(uname -m)" = x86_64 ] || die "Requires Linux x86_64 to build; this variant never installs host dependencies."
   local missing=() cmd
-  for cmd in git curl rsync python3 sha256sum flock tar; do
-    command -v "$cmd" >/dev/null || missing+=("$cmd")
-  done
+  case "$phase" in
+    kernel)
+      for cmd in make bc bison flex ccache aarch64-linux-gnu-gcc pahole python3 gzip zstd file fdtget sha256sum curl tar git flock; do
+        command -v "$cmd" >/dev/null || missing+=("$cmd")
+      done
+      ;;
+    alpine|debian|ubuntu)
+      for cmd in rsync cpio gzip xz zstd openssl e2fsck mkfs.ext4 tune2fs blkid truncate python3 file ssh update-binfmts depmod sha256sum curl tar git flock; do
+        command -v "$cmd" >/dev/null || missing+=("$cmd")
+      done
+      if [ ! -x /usr/bin/qemu-aarch64-static ]; then missing+=('qemu-aarch64-static'); fi
+      if [ "$phase" != alpine ]; then
+        command -v arch-test >/dev/null || missing+=('arch-test')
+      fi
+      if [ "$phase" = debian ]; then
+        command -v mmdebstrap >/dev/null || missing+=('mmdebstrap')
+      fi
+      ;;
+    *) die "Unexpected tool phase: $phase";;
+  esac
   if [ "${#missing[@]}" -gt 0 ]; then
-    say "Installing essential utilities: ${missing[*]}"
-    command -v sudo >/dev/null && sudo -v
-    run_root apt-get update
-    run_root apt-get install -y --no-install-recommends git curl rsync python3 coreutils util-linux tar ca-certificates
-  fi
-  if [ "$(id -u)" -eq 0 ] && ! command -v sudo >/dev/null; then
-    say 'Root container without sudo: installing sudo so the upstream scripts keep working'
-    run_root apt-get update
-    run_root apt-get install -y --no-install-recommends sudo
+    die "Missing host tools: ${missing[*]}. This variant never installs host dependencies; prepare the host with REQUISITOS.txt."
   fi
 }
 
