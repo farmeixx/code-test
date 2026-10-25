@@ -85,20 +85,21 @@ acquire_lock() {
 # The vendored upstream builders live under recipes/ as plain tracked content.
 # vendor_check only asserts presence of the exact contract the runners consume
 # (fail-closed: missing files abort before touching any cache). There is no git
-# plumbing here on purpose: refreshing vendored content is an explicit command,
-# bash sh/sources/vendor.sh, which rewrites recipes/ and recipes/.vendored-from.
+# plumbing and no runtime fetch on purpose: refreshing the vendored trees is a
+# deliberate manual edit of recipes/ (recipes/.vendored-from records the label).
 vendor_check() {
-  local branch="$1" dest="$RECIPES/$branch" distro
+  local branch="$1" distro
+  local dest="$RECIPES/$branch"
   case "$branch" in
     main)
-      [ -s "$dest/sh/run.sh" ] && [ -s "$dest/sh/build.sh" ] || die 'Vendored kernel builder missing (recipes/main/sh/run.sh, sh/build.sh). Run bash sh/sources/vendor.sh.'
+      [ -s "$dest/sh/run.sh" ] && [ -s "$dest/sh/build.sh" ] || die 'Vendored kernel builder missing (recipes/main/sh/run.sh, sh/build.sh). Restore the vendored trees.'
       [ -s "$dest/sh/bootimg.sh" ] && [ -s "$dest/sh/validate.sh" ] || die 'Vendored kernel boot image helper or checkpoint validator missing.'
       [ -s "$dest/sh/deps.sh" ] || die 'Vendored kernel host dependency script missing (sh/deps.sh).'
       [ -s "$dest/conf/mainline.conf" ] || die 'Vendored conf/mainline.conf missing (device configuration).'
       ;;
     rootfs)
       for distro in alpine debian ubuntu; do
-        [ -s "$dest/distros/$distro/build.sh" ] || die "Vendored $distro builder missing (recipes/rootfs/distros/$distro/build.sh). Run bash sh/sources/vendor.sh."
+        [ -s "$dest/distros/$distro/build.sh" ] || die "Vendored $distro builder missing (recipes/rootfs/distros/$distro/build.sh). Restore the vendored trees."
       done
       [ -s "$dest/sh/run.sh" ] && [ -s "$dest/sh/validate.sh" ] && [ -s "$dest/sh/deps.sh" ] || die 'Vendored rootfs orchestration scripts missing.'
       [ -s "$dest/sh/firmware.sh" ] && [ -s "$dest/conf/firmware.conf" ] && [ -s "$dest/conf/usb.conf" ] || die 'Vendored device firmware/USB configuration missing (sh/firmware.sh, conf/*.conf).'

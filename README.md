@@ -46,9 +46,8 @@ O que cada fase faz:
 sh/mainline/       scripts de kernel
 sh/rootfs/         scripts de Alpine, Debian e Ubuntu
 sh/lib/            helpers commons + gerador raw (python3)
-recipes/           builders upstream VENDORED (main + rootfs); identidade
-                   em recipes/.vendored-from; refresh explicito via
-                   `bash sh/sources/vendor.sh`
+recipes/           builders upstream VENDORED (main + rootfs), copiados
+                   fixos neste repo; proveniencia em recipes/.vendored-from
 sources/linux/     clone mainline msm8953/latest (persistente)
 sources/mkbootimg/ clone AOSP mkbootimg com SHA fixado
 cache/mainline/modules/     modulos do kernel para os rootfs
@@ -93,10 +92,10 @@ Ritual de bump (a base msm8953/latest mudou): edita UMA linha em
 (comportamento esperado). A mesma label tambem vive vendored em
 `recipes/main/conf/release-label.config` (CONFIG_LOCALVERSION="-mainline" com
 LOCALVERSION_AUTO desligado) e no `KERNEL_PIN_RELEASE` de
-`recipes/main/conf/mainline.conf` — quando o pin do pinned release mudar no
-channel-rootfs, rode `bash sh/sources/vendor.sh`, confirme as duas fontes e
-recompile: o build sai deterministicamente com o release pinado e o pin local
-so confirma.
+`recipes/main/conf/mainline.conf`; quando o pin mudar no channel-rootfs,
+atualize as copias vendored (a proveniencia fica em `recipes/.vendored-from`),
+confirme as duas fontes e recompile: o build sai deterministicamente com o
+release pinado e o pin local so confirma.
 
 ## Requisitos
 

@@ -1,6 +1,7 @@
 # The upstream builders are VENDORED here (no runtime fetch). This file records
 # exactly which channel-rootfs state each vendored tree corresponds to.
-# To move to a newer channel-rootfs state: bash sh/sources/vendor.sh
+# To move to a newer channel-rootfs state: replace the trees manually and
+# update the SHAs below.
 repo=https://github.com/farmeixx/channel-rootfs
 main=3f36a990815dfbd5fea04880d5ee32560c01ac5d
 rootfs=8fb5e5274cb078e4bb9e257007301fa6380d94a5

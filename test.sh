@@ -9,7 +9,7 @@ fail=0
 
 echo '== 1) bash -n every script (parse only)'
 for f in conf/release.conf conf/modules.conf sh/build.sh sh/status.sh \
-         sh/sources/vendor.sh sh/mainline/build.sh sh/mainline/update-source.sh \
+         sh/mainline/build.sh sh/mainline/update-source.sh \
          recipes/main/sh/build.sh recipes/rootfs/distros/debian/build.sh \
          sh/rootfs/alpine.sh sh/rootfs/debian.sh sh/rootfs/ubuntu.sh test.sh; do
   if bash -n "$HERE/$f"; then echo "syntax ok: $f"; else echo "SYNTAX FAIL: $f"; fail=$((fail + 1)); fi
