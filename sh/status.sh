@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/lib/common.sh"
-printf 'Device: %s\nRoot: %s\n' "$DEVICE" "$ROOT"
+printf 'Device: %s\nRoot: %s\nKernel pin: %s\n' "$DEVICE" "$ROOT" "$KERNEL_RELEASE"
 if [ -s "$CHECKPOINT/kernel-release.txt" ]; then
   printf 'Cached kernel: %s\n' "$(cat "$CHECKPOINT/kernel-release.txt")"
   [ ! -f "$CHECKPOINT/source-report.txt" ] || grep -E '^kernel_(ref|source_sha)=' "$CHECKPOINT/source-report.txt"

@@ -16,6 +16,25 @@ export LC_ALL=C
 say() { printf '\n[%s] %s\n' "$DEVICE" "$*"; }
 die() { printf '\nERROR [%s]: %s\n' "$DEVICE" "$*" >&2; exit 1; }
 
+# Release identity and the module extraction contract are shipped conf files
+# in conf/: every consumer (kernel checkpoint, rootfs drivers, status) sources
+# them ONCE here, so no stage can start from a different release name and any
+# missing or empty pin dies at startup, before touching the cache.
+RELEASE_CONF="$ROOT/conf/release.conf"
+MODULES_CONF="$ROOT/conf/modules.conf"
+[ -s "$RELEASE_CONF" ] || die "Missing kernel release pin: $RELEASE_CONF"
+[ -s "$MODULES_CONF" ] || die "Missing module extraction contract: $MODULES_CONF"
+source "$RELEASE_CONF"
+source "$MODULES_CONF"
+: "${KERNEL_RELEASE:?conf/release.conf must set KERNEL_RELEASE}"
+: "${KERNEL_SUFFIX:?conf/release.conf must set KERNEL_SUFFIX}"
+: "${MODULES_ARCHIVE:?conf/modules.conf must set MODULES_ARCHIVE}"
+: "${MODULES_TARGET:?conf/modules.conf must set MODULES_TARGET}"
+: "${MODULES_SHA_MANIFEST:?conf/modules.conf must set MODULES_SHA_MANIFEST}"
+[ "${#MODULES_REQUIRED[@]}" -gt 0 ] || die 'conf/modules.conf must declare at least one required module.'
+case "$KERNEL_SUFFIX" in -*) ;; *) die "conf/release.conf KERNEL_SUFFIX ($KERNEL_SUFFIX) must start with a dash.";; esac
+case "$KERNEL_RELEASE" in *"$KERNEL_SUFFIX") ;; *) die "conf/release.conf KERNEL_RELEASE ($KERNEL_RELEASE) must end with KERNEL_SUFFIX.";; esac
+
 # Root container without a sudo binary (minimal images): run apt directly.
 # Normal users always go through sudo. Upstream scripts call sudo directly,
 # so bootstrap_tools also installs sudo for the missing-binary case.
@@ -108,11 +127,29 @@ ensure_checkpoint() {
   [ -s "$CHECKPOINT/SHA256SUMS" ] || die 'Incomplete cached kernel checkpoint.'
   local krel archive boot
   krel="$(cat "$CHECKPOINT/kernel-release.txt")"
-  archive="$CHECKPOINT/kernel-modules-$krel.tar.zst"
+  # Choke point of the release pin: kernel AND rootfs consumers both come
+  # through here, so a moved base refuses every stage in one place, before
+  # anything is packed or shipped to a device.
+  [ "$krel" = "$KERNEL_RELEASE" ] || die "Cached release ($krel) differs from the pinned release ($KERNEL_RELEASE). Bump conf/release.conf or rebuild."
+  case "$krel" in *"$KERNEL_SUFFIX") ;; *) die "Cached release ($krel) does not carry the pinned suffix ($KERNEL_SUFFIX).";; esac
+  archive="$CHECKPOINT/$MODULES_ARCHIVE"
   [ -s "$archive" ] || die "Cached kernel modules missing: $archive"
   boot="$(printf '%s\n' "$CHECKPOINT"/boot-*.img)"
   [ -s "$boot" ] || die 'Kernel boot image missing from cached checkpoint.'
   printf '%s\n' "$krel"
+}
+
+# Verify the extraction contract against a module archive by listing it: after
+# the SHA comparison, the archive picked by the checkpoint must unpack into
+# MODULES_TARGET carrying every module from MODULES_REQUIRED. zstd and tar
+# only read; nothing is extracted at this point.
+check_required_modules() {
+  local archive="$1" entries entry
+  [ -s "$archive" ] || die "Module archive missing: $archive"
+  entries="$(tar -I zstd -tf "$archive")"
+  for entry in "${MODULES_REQUIRED[@]}"; do
+    printf '%s\n' "$entries" | grep -Fq "/$entry.ko" || die "Module archive $archive is missing required module '$entry' (contract: conf/modules.conf)."
+  done
 }
 
 new_stamp() { date -u +%Y%m%d%H%M%S; }
