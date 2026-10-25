@@ -29,7 +29,11 @@ MODULES="$(cat "$MODULE_CACHE/current.txt")"
 case "$MODULES" in "$MODULE_CACHE"/*) ;; *) die 'Modules cache path is outside cache/mainline/modules.';; esac
 [ -s "$MODULES" ] || die 'Cached modules archive is missing.'
 # Never combine a newer/different kernel with stale rootfs modules.
-[ "$(sha256sum "$MODULES" | cut -d ' ' -f1)" = "$(sha256sum "$CHECKPOINT/kernel-modules-$KREL.tar.zst" | cut -d ' ' -f1)" ] || die 'Cached modules are not from current kernel checkpoint.'
+[ "$(sha256sum "$MODULES" | cut -d ' ' -f1)" = "$(sha256sum "$CHECKPOINT/$MODULES_ARCHIVE" | cut -d ' ' -f1)" ] || die 'Cached modules are not from current kernel checkpoint.'
+
+# Extraction contract on top of the checksum: this archive must unpack into
+# $MODULES_TARGET with every module from MODULES_REQUIRED present.
+check_required_modules "$CHECKPOINT/$MODULES_ARCHIVE"
 
 # Keep upstream rootfs and per-device Wi-Fi/USB/SSH/service setup intact.
 # Change ONLY final zstd compression to retain the raw ext4 as the user requested.

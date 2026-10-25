@@ -95,6 +95,25 @@ O device inteiro vem do repo por **conf, não por lógica fixada em script**:
 - Firmware: `conf/firmware.conf` do repo — `FIRMWARE_CONFIG` sobrepõe.
 - USB/identidade de rede: `conf/usb.conf` do repo (usado pelos builders).
 
+## Pin do release do kernel (conf do builder)
+
+Além da conf do device, o builder também versiona a própria identidade em
+`conf/` (fail-closed):
+
+- `conf/release.conf` — `KERNEL_RELEASE` + `KERNEL_SUFFIX` pinados (hoje
+  `7.3.0-rc7-mainline`): reuse do checkpoint, pós-compilação e status conferem
+  o valor e morrem com mensagem clara em qualquer divergência.
+- `conf/modules.conf` — contrato de extração (`MODULES_ARCHIVE`,
+  `MODULES_TARGET`, `MODULES_REQUIRED`, `MODULES_SHA_MANIFEST`): os módulos
+  são conferidos no tar antes de montar qualquer rootfs.
+
+Ritual de bump (a base msm8953/latest mudou): edita UMA linha em
+`conf/release.conf` e recompila; o checkpoint antigo é recusado pelos guards
+(comportamento esperado). No lado do repo a mesma label é pinnada via
+`repo:conf/release-label.config` (CONFIG_LOCALVERSION="-mainline" com
+LOCALVERSION_AUTO desligado), então o build sai deterministicamente com o
+release pinado e o pin local só confirma.
+
 ## Requisitos
 
 - Distro **apt** em x86_64 (Debian/Ubuntu nativo, Mint/Pop!_OS/Kali/Zorin/

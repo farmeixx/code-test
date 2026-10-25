@@ -98,6 +98,11 @@ export OUT_DIR="$STAGE" KERNEL_DIR
 say "Compiling $DEVICE kernel at $SOURCE_SHA with persistent ccache (conf: $CONF_PATH)"
 bash "$MAIN/sh/build.sh"
 KREL="$(cat "$STAGE/kernel-release.txt")"
+# Second, post-build layer of the release pin: with the pinned CONFIG_LOCALVERSION
+# the compile cannot drift, but a manual KERNEL_MAINLINE_CONF override or a stale
+# local tree still can. Quarantine the stage: nothing is packed or published.
+[ "$KREL" = "$KERNEL_RELEASE" ] || die "Compiled release ($KREL) differs from the pinned release ($KERNEL_RELEASE). Bump conf/release.conf or rebuild."
+case "$KREL" in *"$KERNEL_SUFFIX") ;; *) die "Compiled release ($KREL) does not carry the pinned suffix ($KERNEL_SUFFIX).";; esac
 
 {
   printf 'kernel_url=%s\nkernel_ref=%s\nkernel_source_sha=%s\n' "$KERNEL_URL" "$KERNEL_REF" "$SOURCE_SHA"
@@ -149,7 +154,7 @@ cp "$STAGE/$DTB_BASENAME" "$DEST/$BASE.dtb"
 cp "$STAGE/Image.gz" "$DEST/$BASE.Image.gz"
 cp "$STAGE/kernel.config" "$DEST/$BASE.config"
 cp "$STAGE/System.map" "$DEST/$BASE.System.map"
-cp "$STAGE/kernel-modules-$KREL.tar.zst" "$DEST/$BASE.modules.tar.zst"
+cp "$STAGE/$MODULES_ARCHIVE" "$DEST/$BASE.modules.tar.zst"
 cp "$STAGE/kernel-info.txt" "$DEST/$BASE.kernel-info.txt"
 cp "$STAGE/kernel-cmdline.txt" "$DEST/$BASE.kernel-cmdline.txt"
 cp "$STAGE/source-report.txt" "$DEST/$BASE.source-report.txt"
@@ -161,8 +166,8 @@ cp "$STAGE/source-report.txt" "$DEST/$BASE.source-report.txt"
 # Publish the cached module set separately, keyed by source SHA and release.
 MOD_PATH="$MODULE_CACHE/$SOURCE_SHA/$KREL"
 mkdir -p "$MOD_PATH"
-cp "$STAGE/kernel-modules-$KREL.tar.zst" "$MOD_PATH/kernel-modules-$KREL.tar.zst.tmp"
-mv -f "$MOD_PATH/kernel-modules-$KREL.tar.zst.tmp" "$MOD_PATH/kernel-modules-$KREL.tar.zst"
+cp "$STAGE/$MODULES_ARCHIVE" "$MOD_PATH/$MODULES_ARCHIVE.tmp"
+mv -f "$MOD_PATH/$MODULES_ARCHIVE.tmp" "$MOD_PATH/$MODULES_ARCHIVE"
 
 # Publish the checkpoint.
 rm -rf "$PREV"
@@ -171,11 +176,11 @@ if ! mv "$STAGE" "$CHECKPOINT"; then
   if [ -d "$PREV" ]; then mv "$PREV" "$CHECKPOINT"; fi
   die 'Failed to publish validated kernel checkpoint.'
 fi
-printf '%s\n' "$MOD_PATH/kernel-modules-$KREL.tar.zst" > "$MODULE_CACHE/current.txt"
+printf '%s\n' "$MOD_PATH/$MODULES_ARCHIVE" > "$MODULE_CACHE/current.txt"
 rm -rf "$PREV"
 printf '%s\n' "$BASE" > "$CACHE/mainline/latest-build.txt"
 
 say "Kernel ready: $DEST/$BASE.img"
-say "Modules: $MOD_PATH/kernel-modules-$KREL.tar.zst"
+say "Modules: $MOD_PATH/$MODULES_ARCHIVE"
 say 'Future rootfs builds reuse the checkpoint and modules without recompiling.'
 ccache --show-stats

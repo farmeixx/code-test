@@ -8,9 +8,9 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 fail=0
 
 echo '== 1) bash -n every script (parse only)'
-for f in sh/build.sh sh/status.sh sh/sources/prepare.sh sh/mainline/build.sh \
-         sh/mainline/update-source.sh sh/rootfs/alpine.sh sh/rootfs/debian.sh \
-         sh/rootfs/ubuntu.sh test.sh; do
+for f in conf/release.conf conf/modules.conf sh/build.sh sh/status.sh \
+         sh/sources/prepare.sh sh/mainline/build.sh sh/mainline/update-source.sh \
+         sh/rootfs/alpine.sh sh/rootfs/debian.sh sh/rootfs/ubuntu.sh test.sh; do
   if bash -n "$HERE/$f"; then echo "syntax ok: $f"; else echo "SYNTAX FAIL: $f"; fail=$((fail + 1)); fi
 done
 
@@ -98,7 +98,7 @@ set +e
 out="$(bash "$HERE/sh/status.sh" 2>&1)"
 rc=$?
 set -e
-if [ "$rc" -eq 0 ] && printf '%s\n' "$out" | grep -q 'Device: channel' && printf '%s\n' "$out" | grep -q 'Completed images:'; then
+if [ "$rc" -eq 0 ] && printf '%s\n' "$out" | grep -q 'Device: channel' && printf '%s\n' "$out" | grep -q 'Kernel pin:' && printf '%s\n' "$out" | grep -q 'Completed images:'; then
   echo 'ok: status printed'
   printf '%s\n' "$out" | head -3
 else
@@ -120,6 +120,25 @@ set -e
 rm -f "$sandbox"
 if [ "$rc" -eq 1 ] && printf '%s\n' "$out" | grep -q 'never installs host dependencies'; then
   echo "ok: exit=$rc, no dependency installation path"
+else
+  echo "FAIL: exit=$rc output: $out"; fail=$((fail + 1))
+fi
+
+echo '== 11) shipped confs parse and resolve one consistent contract'
+set +e
+out="$(bash -c '
+  source "$1/conf/release.conf" || exit 3
+  case "$KERNEL_RELEASE" in *"$KERNEL_SUFFIX") ;; *) exit 9;; esac
+  source "$1/conf/modules.conf" || exit 4
+  [ "$MODULES_ARCHIVE" = "kernel-modules-$KERNEL_RELEASE.tar.zst" ] || exit 8
+  [ "$MODULES_TARGET" = "lib/modules/$KERNEL_RELEASE" ] || exit 7
+  [ "${#MODULES_REQUIRED[@]}" -gt 0 ] || exit 6
+  echo "ok: $KERNEL_RELEASE + $MODULES_ARCHIVE + $MODULES_TARGET + ${#MODULES_REQUIRED[@]} required"
+' _ "$HERE" 2>&1)"
+rc=$?
+set -e
+if [ "$rc" -eq 0 ] && printf '%s\n' "$out" | grep -q '^ok: '; then
+  echo "ok: $out"
 else
   echo "FAIL: exit=$rc output: $out"; fail=$((fail + 1))
 fi
