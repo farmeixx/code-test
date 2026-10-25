@@ -1,0 +1,16 @@
+Motorola Moto G7 Play (channel) firmware for mainline Linux.
+
+Provenance: stock dump PPYS29.105-57-4 (100Daisy/motorola_channel_dump).
+Hashes: see SHA256SUMS.
+
+Layout:
+  wlan/         WCNSS_qcom_wlan_nv*.bin (base + Argentina/Brazil/India/epa).
+                Install base as qcom/msm8953/motorola/channel/WCNSS_qcom_wlan_nv.bin.
+  qcom/         Adreno 506 a530_pm4.fw + a530_pfp.fw (stock versions).
+  touchscreen/  Ilitek ILI9881 (DSBJ) + Novatek NT36525/NT36525B (DJN)
+                firmware, kept for the future touch driver ports.
+                No mainline driver consumes them yet.
+
+Pending (later milestones, need extraction + hardware validation):
+  a506_zap.mdt/.b0* (GPU secure shader), mba.mbn/modem.mbn (modem),
+  adsp.mbn (audio DSP), venus.mbn (video), WCNSS.mbn.

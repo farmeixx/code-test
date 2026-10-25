@@ -1,11 +1,14 @@
 #!/usr/bin/env bash
 # Common LOCAL-only helpers. No GitHub Actions, workflow runs, dispatches, or cloud jobs.
-# Aligned with the CURRENT repository logic: sh/run.sh orchestration, conf/*.conf
-# device configuration and the distros/ recipe layout on the rootfs branch.
+# The upstream builders ARE VENDORED in recipes/ (main + rootfs trees of
+# farmeixx/channel-rootfs, see recipes/.vendored-from): the build steps never
+# fetch scripts at runtime, so there is no stale-checkout hazard; updates go
+# through sh/sources/vendor.sh, an explicit-only maintenance command.
 set -Eeuo pipefail
 DEVICE="channel"
-REPO="farmeixx/${DEVICE}-rootfs"
+VENDOR_REPO="farmeixx/${DEVICE}-rootfs"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+RECIPES="$ROOT/recipes"
 SOURCES="$ROOT/sources"
 CACHE="$ROOT/cache"
 BUILDS="$ROOT/build"
@@ -79,47 +82,29 @@ acquire_lock() {
   flock -x 9 || die 'Could not acquire local builder lock.'
 }
 
-prepare_repo_branch() {
-  local branch="$1" dest="$SOURCES/recipes/$1" origin="https://github.com/$REPO.git"
-  mkdir -p "$SOURCES/recipes"
-  if [ -d "$dest/.git" ]; then
-    local got
-    got="$(git -C "$dest" remote get-url origin)"
-    [ "$got" = "$origin" ] || die "Unexpected git origin in $dest: $got"
-    [ "$(git -C "$dest" branch --show-current)" = "$branch" ] || die "Wrong branch in $dest"
-  elif [ -e "$dest" ]; then
-    die "Source directory exists but is not a git checkout: $dest"
-  else
-    say "Fetching current $DEVICE $branch scripts into sources/ (first time only)"
-    GIT_TERMINAL_PROMPT=0 git clone --depth=1 --single-branch --branch "$branch" "$origin" "$dest"
-  fi
+# The vendored upstream builders live under recipes/ as plain tracked content.
+# vendor_check only asserts presence of the exact contract the runners consume
+# (fail-closed: missing files abort before touching any cache). There is no git
+# plumbing here on purpose: refreshing vendored content is an explicit command,
+# bash sh/sources/vendor.sh, which rewrites recipes/ and recipes/.vendored-from.
+vendor_check() {
+  local branch="$1" dest="$RECIPES/$branch" distro
   case "$branch" in
     main)
-      [ -s "$dest/sh/run.sh" ] && [ -s "$dest/sh/build.sh" ] || die 'Incomplete kernel builder sources (sh/run.sh, sh/build.sh).'
-      [ -s "$dest/sh/bootimg.sh" ] && [ -s "$dest/sh/validate.sh" ] || die 'Kernel boot image helper or checkpoint validator missing.'
-      [ -s "$dest/sh/deps.sh" ] || die 'Kernel host dependency script missing (sh/deps.sh).'
-      [ -s "$dest/conf/mainline.conf" ] || die 'Missing conf/mainline.conf (new device configuration).'
+      [ -s "$dest/sh/run.sh" ] && [ -s "$dest/sh/build.sh" ] || die 'Vendored kernel builder missing (recipes/main/sh/run.sh, sh/build.sh). Run bash sh/sources/vendor.sh.'
+      [ -s "$dest/sh/bootimg.sh" ] && [ -s "$dest/sh/validate.sh" ] || die 'Vendored kernel boot image helper or checkpoint validator missing.'
+      [ -s "$dest/sh/deps.sh" ] || die 'Vendored kernel host dependency script missing (sh/deps.sh).'
+      [ -s "$dest/conf/mainline.conf" ] || die 'Vendored conf/mainline.conf missing (device configuration).'
       ;;
     rootfs)
-      local distro
       for distro in alpine debian ubuntu; do
-        [ -s "$dest/distros/$distro/build.sh" ] || die "Missing $distro builder (distros/$distro/build.sh in the rootfs branch)."
+        [ -s "$dest/distros/$distro/build.sh" ] || die "Vendored $distro builder missing (recipes/rootfs/distros/$distro/build.sh). Run bash sh/sources/vendor.sh."
       done
-      [ -s "$dest/sh/run.sh" ] && [ -s "$dest/sh/validate.sh" ] && [ -s "$dest/sh/deps.sh" ] || die 'Rootfs orchestration scripts missing.'
-      [ -s "$dest/sh/firmware.sh" ] && [ -s "$dest/conf/firmware.conf" ] && [ -s "$dest/conf/usb.conf" ] || die 'Device firmware/USB configuration missing (sh/firmware.sh, conf/*.conf).'
+      [ -s "$dest/sh/run.sh" ] && [ -s "$dest/sh/validate.sh" ] && [ -s "$dest/sh/deps.sh" ] || die 'Vendored rootfs orchestration scripts missing.'
+      [ -s "$dest/sh/firmware.sh" ] && [ -s "$dest/conf/firmware.conf" ] && [ -s "$dest/conf/usb.conf" ] || die 'Vendored device firmware/USB configuration missing (sh/firmware.sh, conf/*.conf).'
       ;;
-    *) die "Unexpected recipe branch: $branch";;
+    *) die "Unexpected vendored recipe: $branch";;
   esac
-  printf '%s\n' "$(git -C "$dest" rev-parse HEAD)" > "$dest/.local-builder-revision"
-}
-
-refresh_repo_branch() {
-  local branch="$1" dest="$SOURCES/recipes/$1"
-  prepare_repo_branch "$branch"
-  [ -z "$(git -C "$dest" status --porcelain --untracked-files=no)" ] || die "Tracked edits in $dest; refusing to overwrite them."
-  say "Fast-forwarding local $branch scripts explicitly"
-  git -C "$dest" pull --ff-only
-  printf '%s\n' "$(git -C "$dest" rev-parse HEAD)" > "$dest/.local-builder-revision"
 }
 
 ensure_checkpoint() {

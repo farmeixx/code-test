@@ -9,7 +9,8 @@ fail=0
 
 echo '== 1) bash -n every script (parse only)'
 for f in conf/release.conf conf/modules.conf sh/build.sh sh/status.sh \
-         sh/sources/prepare.sh sh/mainline/build.sh sh/mainline/update-source.sh \
+         sh/sources/vendor.sh sh/mainline/build.sh sh/mainline/update-source.sh \
+         recipes/main/sh/build.sh recipes/rootfs/distros/debian/build.sh \
          sh/rootfs/alpine.sh sh/rootfs/debian.sh sh/rootfs/ubuntu.sh test.sh; do
   if bash -n "$HERE/$f"; then echo "syntax ok: $f"; else echo "SYNTAX FAIL: $f"; fail=$((fail + 1)); fi
 done
@@ -71,13 +72,27 @@ else
   echo "FAIL: exit=$rc output: $out"; fail=$((fail + 1))
 fi
 
-echo '== 7) sh/sources/prepare.sh unknown branch -> usage, exit 2'
+echo '== 7) vendored recipes complete (main kernel + rootfs distros), no runtime fetch'
 set +e
-out="$(bash "$HERE/sh/sources/prepare.sh" banana 2>&1)"
+out="$(bash -c '
+  d="$1"; miss=0
+  for f in recipes/.vendored-from recipes/main/sh/run.sh recipes/main/sh/build.sh \
+           recipes/main/sh/bootimg.sh recipes/main/sh/validate.sh recipes/main/sh/deps.sh \
+           recipes/main/conf/mainline.conf recipes/main/conf/release-label.config \
+           recipes/rootfs/sh/run.sh recipes/rootfs/sh/validate.sh recipes/rootfs/sh/deps.sh \
+           recipes/rootfs/sh/firmware.sh recipes/rootfs/sh/usb-gadget \
+           recipes/rootfs/conf/firmware.conf recipes/rootfs/conf/usb.conf \
+           recipes/rootfs/distros/alpine/build.sh recipes/rootfs/distros/debian/build.sh \
+           recipes/rootfs/distros/ubuntu/build.sh; do
+    [ -s "$d/$f" ] || { echo "missing: $f"; miss=1; }
+  done
+  grep -q "^main=" "$d/recipes/.vendored-from" && grep -q "^rootfs=" "$d/recipes/.vendored-from" || { echo "missing: vendored provenance"; miss=1; }
+  [ "$miss" -eq 0 ] && echo "ok: vendored recipes complete"
+' _ "$HERE" 2>&1)"
 rc=$?
 set -e
-if [ "$rc" -eq 2 ] && printf '%s\n' "$out" | grep -q 'Usage: bash sh/sources/prepare.sh'; then
-  echo "ok: exit=$rc with usage"
+if [ "$rc" -eq 0 ] && printf '%s\n' "$out" | grep -q '^ok: '; then
+  echo "ok: $out"
 else
   echo "FAIL: exit=$rc output: $out"; fail=$((fail + 1))
 fi

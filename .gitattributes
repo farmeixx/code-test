@@ -1,0 +1,3 @@
+# Keep every text engagement LF: vendored scripts (recipes/) run under Linux
+# bash where CRLF breaks parsing; firmware blobs are untouched via text=auto.
+* text=auto eol=lf

@@ -1,0 +1,5 @@
+# Use Alpine's packaged dnsmasq OpenRC service for the Channel USB link.
+cfgfile="/etc/dnsmasq-usb.conf"
+
+# The RNDIS interface and its 172.16.42.1/24 address are created first.
+rc_need="usb-gadget"

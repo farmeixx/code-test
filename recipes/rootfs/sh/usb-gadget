@@ -1,0 +1,210 @@
+#!/bin/sh
+# ConfigFS RNDIS gadget shared across Linux distros; per-device values in /etc/usb-gadget.conf.
+set -eu
+
+CONF="${USB_GADGET_CONF:-/etc/usb-gadget.conf}"
+[ -r "$CONF" ] || { echo "usb-gadget: missing config: $CONF" >&2; exit 1; }
+# This is a trusted root-owned image configuration, not untrusted input.
+. "$CONF"
+: "${DEVICE_NAME:?DEVICE_NAME missing in usb-gadget.conf}"
+: "${USB_MANUFACTURER:?USB_MANUFACTURER missing in usb-gadget.conf}"
+: "${USB_DEV_MAC:?USB_DEV_MAC missing in usb-gadget.conf}"
+: "${USB_HOST_MAC:?USB_HOST_MAC missing in usb-gadget.conf}"
+: "${USB_IP_CIDR:?USB_IP_CIDR missing in usb-gadget.conf}"
+: "${USB_IFACE:?USB_IFACE missing in usb-gadget.conf}"
+case "$DEVICE_NAME" in *[!a-zA-Z0-9_-]*|'') echo 'usb-gadget: invalid DEVICE_NAME' >&2; exit 1;; esac
+case "$USB_IFACE" in *[!a-zA-Z0-9_.-]*|'') echo 'usb-gadget: invalid USB_IFACE' >&2; exit 1;; esac
+for mac in "$USB_DEV_MAC" "$USB_HOST_MAC"; do
+    printf '%s\n' "$mac" | grep -Eq '^([[:xdigit:]]{2}:){5}[[:xdigit:]]{2}$' || {
+        echo "usb-gadget: invalid MAC address: $mac" >&2; exit 1;
+    }
+done
+[ "$USB_DEV_MAC" != "$USB_HOST_MAC" ] || { echo 'usb-gadget: MAC addresses must differ' >&2; exit 1; }
+printf '%s\n' "$USB_IP_CIDR" | grep -Eq '^[0-9]+(\.[0-9]+){3}/([0-9]|[12][0-9]|3[0-2])$' || {
+    echo 'usb-gadget: invalid USB_IP_CIDR' >&2; exit 1;
+}
+
+#------------------------------------------------------------------#
+
+# System identity rendered into the gadget USB strings.
+DISTRO=Linux
+if [ -r /etc/os-release ]; then
+    . /etc/os-release
+    case "${ID:-}" in alpine) DISTRO=Alpine;; debian) DISTRO=Debian;; ubuntu) DISTRO=Ubuntu;; esac
+fi
+PRODUCT="$DEVICE_NAME $DISTRO USB RNDIS"
+SERIAL="$(
+    { if [ -r /sys/devices/soc0/serial_number ]; then
+          cat /sys/devices/soc0/serial_number
+      elif [ -r /proc/device-tree/serial-number ]; then
+          tr -d '\000' < /proc/device-tree/serial-number
+      elif [ -r /etc/machine-id ]; then
+          cat /etc/machine-id
+      fi; } | tr -cd '0-9A-Za-z' | head -c 16
+)"
+[ -n "$SERIAL" ] || SERIAL="$(printf '%s' "$DISTRO" | tr '[:upper:]' '[:lower:]')"
+SERIAL="$DEVICE_NAME-$SERIAL"
+G=/sys/kernel/config/usb_gadget/usb-gadget
+UDC_PATH=/sys/class/udc
+NET_PATH=/sys/class/net
+
+#------------------------------------------------------------------#
+
+# Small helpers: attribute reads, live-gadget detection, cleanup of
+# unbound leftovers, and RNDIS interface bring-up.
+fail() { echo "usb-gadget: $*" >&2; exit 1; }
+read_attr() { [ -r "$1" ] && cat "$1" || true; }
+
+# Refuse to clobber another active gadget. Re-execution must preserve SSH.
+active_matches() {
+    [ -L "$G/configs/c.1/rndis.usb0" ] &&
+    [ -L "$G/os_desc/c.1" ] &&
+    [ "$(read_attr "$G/idVendor")" = 0x1d6b ] &&
+    [ "$(read_attr "$G/idProduct")" = 0x0104 ] &&
+    [ "$(read_attr "$G/functions/rndis.usb0/dev_addr")" = "$USB_DEV_MAC" ] &&
+    [ "$(read_attr "$G/functions/rndis.usb0/host_addr")" = "$USB_HOST_MAC" ] &&
+    [ "$(read_attr "$G/strings/0x409/product")" = "$PRODUCT" ] &&
+    [ "$(read_attr "$G/strings/0x409/manufacturer")" = "$USB_MANUFACTURER" ] &&
+    [ "$(read_attr "$G/strings/0x409/serialnumber")" = "$SERIAL" ]
+}
+
+# Only clean *unbound* gadget directories owned by this service. ConfigFS virtual
+# attributes disappear on rmdir and must not be manually removed.
+cleanup_unbound() {
+    [ -d "$G" ] || return 0
+    [ -z "$(read_attr "$G/UDC")" ] || fail 'cannot remove a bound gadget'
+    rm -f "$G/configs/c.1/rndis.usb0" "$G/os_desc/c.1"
+    [ ! -d "$G/configs/c.1/strings/0x409" ] || rmdir "$G/configs/c.1/strings/0x409"
+    [ ! -d "$G/configs/c.1" ] || rmdir "$G/configs/c.1"
+    [ ! -d "$G/functions/rndis.usb0" ] || rmdir "$G/functions/rndis.usb0"
+    [ ! -d "$G/strings/0x409" ] || rmdir "$G/strings/0x409"
+    rmdir "$G"
+}
+
+# Kernel versions disagree on whether ifname is a template or the actual netdev.
+# Resolve by configured MAC as well; never configure some unrelated usb0.
+find_iface() {
+    name="$(read_attr "$G/functions/rndis.usb0/ifname")"
+    if [ -n "$name" ] && [ -d "$NET_PATH/$name" ] &&
+       [ "$(read_attr "$NET_PATH/$name/address")" = "$USB_DEV_MAC" ]; then
+        printf '%s\n' "$name"; return 0
+    fi
+    for entry in "$NET_PATH"/*; do
+        [ -d "$entry" ] || continue
+        if [ "$(read_attr "$entry/address")" = "$USB_DEV_MAC" ]; then
+            printf '%s\n' "${entry##*/}"; return 0
+        fi
+    done
+    return 1
+}
+
+configure_net() {
+    i=0
+    while :; do
+        IFACE="$(find_iface || true)"
+        [ -z "$IFACE" ] || break
+        i=$((i + 1))
+        [ "$i" -lt 20 ] || fail 'RNDIS net interface did not appear'
+        sleep 1
+    done
+    [ "$IFACE" = "$USB_IFACE" ] || fail "RNDIS is $IFACE, but DHCP/SSH expect $USB_IFACE"
+    command -v ip >/dev/null || fail 'iproute2 is missing'
+    if ! ip -o -4 addr show dev "$IFACE" | grep -Fq " inet $USB_IP_CIDR "; then
+        if ip -o -4 addr show dev "$IFACE" | grep -q ' inet '; then
+            fail "existing $IFACE address differs from $USB_IP_CIDR; refusing to disrupt SSH"
+        fi
+        ip addr add "$USB_IP_CIDR" dev "$IFACE" || fail "cannot assign $USB_IP_CIDR to $IFACE"
+    fi
+    ip link set dev "$IFACE" up || fail "cannot bring $IFACE up"
+    echo "usb-gadget: RNDIS ready on $IFACE ($USB_IP_CIDR)"
+}
+
+#------------------------------------------------------------------#
+
+# Prerequisites: configfs mounted and iproute2 available.
+modprobe configfs 2>/dev/null || true
+modprobe libcomposite 2>/dev/null || true
+if ! grep -q ' /sys/kernel/config configfs ' /proc/mounts; then
+    mount -t configfs configfs /sys/kernel/config || fail 'cannot mount ConfigFS'
+fi
+[ -d /sys/kernel/config/usb_gadget ] || fail 'USB gadget ConfigFS is not available'
+command -v ip >/dev/null || fail 'iproute2 not available'
+
+#------------------------------------------------------------------#
+
+# Fast path: a gadget already bound with exactly our settings lives on.
+if [ -d "$G" ] && [ -n "$(read_attr "$G/UDC")" ]; then
+    active_matches || fail 'active gadget has different settings; refusing to interrupt USB SSH'
+    configure_net
+    exit 0
+fi
+
+#------------------------------------------------------------------#
+
+# Fresh setup: wait for a UDC, build the gadget, bind it, then bring the
+# interface up (rollback removes an unbound partial on failure.
+
+# An abandoned, *unbound* gadget can be safely rebuilt.
+[ ! -d "$G" ] || cleanup_unbound
+UDC=''
+i=0
+while [ -z "$UDC" ]; do
+    for entry in "$UDC_PATH"/*; do
+        [ -e "$entry" ] || continue
+        UDC="${entry##*/}"
+        break
+    done
+    [ -n "$UDC" ] && break
+    i=$((i + 1))
+    [ "$i" -lt 60 ] || fail 'no USB device controller (UDC) registered'
+    sleep 1
+done
+
+# Refuse to overwrite an unrelated interface before creating/binding RNDIS.
+[ ! -d "$NET_PATH/$USB_IFACE" ] || fail "$USB_IFACE already exists before RNDIS setup"
+mkdir "$G" || fail 'cannot create gadget in ConfigFS'
+created=1
+rollback() {
+    result=$?
+    trap - EXIT
+    if [ "$result" -ne 0 ] && [ "${created:-0}" -eq 1 ]; then
+        if [ -n "$(read_attr "$G/UDC")" ]; then
+            printf '\n' > "$G/UDC" || true
+        fi
+        cleanup_unbound || echo 'usb-gadget: manual ConfigFS cleanup may be required' >&2
+    fi
+    exit "$result"
+}
+trap rollback EXIT
+printf '0x1d6b' > "$G/idVendor"
+printf '0x0104' > "$G/idProduct"
+printf '0x0200' > "$G/bcdUSB"
+printf '0x0100' > "$G/bcdDevice"
+printf '0xEF' > "$G/bDeviceClass"
+printf '0x02' > "$G/bDeviceSubClass"
+printf '0x01' > "$G/bDeviceProtocol"
+mkdir "$G/strings/0x409" "$G/configs/c.1" "$G/configs/c.1/strings/0x409"
+printf '%s' "$SERIAL" > "$G/strings/0x409/serialnumber"
+printf '%s' "$USB_MANUFACTURER" > "$G/strings/0x409/manufacturer"
+printf '%s' "$PRODUCT" > "$G/strings/0x409/product"
+printf '1' > "$G/os_desc/use"
+printf '0xcd' > "$G/os_desc/b_vendor_code"
+printf 'MSFT100' > "$G/os_desc/qw_sign"
+printf 'RNDIS network for SSH' > "$G/configs/c.1/strings/0x409/configuration"
+printf '250' > "$G/configs/c.1/MaxPower"
+mkdir "$G/functions/rndis.usb0"
+printf '%s' "$USB_DEV_MAC" > "$G/functions/rndis.usb0/dev_addr"
+printf '%s' "$USB_HOST_MAC" > "$G/functions/rndis.usb0/host_addr"
+if [ -d "$G/functions/rndis.usb0/os_desc/interface.rndis" ]; then
+    printf 'RNDIS' > "$G/functions/rndis.usb0/os_desc/interface.rndis/compatible_id"
+    printf '5162001' > "$G/functions/rndis.usb0/os_desc/interface.rndis/sub_compatible_id"
+fi
+ln -s "$G/functions/rndis.usb0" "$G/configs/c.1/rndis.usb0"
+ln -s "$G/configs/c.1" "$G/os_desc/c.1"
+printf '%s' "$UDC" > "$G/UDC" || fail "cannot bind gadget to UDC $UDC"
+configure_net
+
+#------------------------------------------------------------------#
+
+created=0
+trap - EXIT

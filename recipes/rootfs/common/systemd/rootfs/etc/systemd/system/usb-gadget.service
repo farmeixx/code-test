@@ -1,0 +1,14 @@
+[Unit]
+Description=Moto G7 Play USB RNDIS gadget for headless SSH
+After=systemd-modules-load.service sys-kernel-config.mount local-fs.target
+Wants=sys-kernel-config.mount
+Before=network.target ssh.service usb-dhcp.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/usb-gadget
+RemainAfterExit=yes
+TimeoutStartSec=90
+
+[Install]
+WantedBy=multi-user.target

@@ -26,8 +26,8 @@ if [ "$mode" = --reuse ]; then
   exit 0
 fi
 
-prepare_repo_branch main
-MAIN="$SOURCES/recipes/main"
+vendor_check main
+MAIN="$RECIPES/main"
 source "$MAIN/sh/deps.sh"
 install_host_deps kernel
 command -v ccache >/dev/null || die 'ccache missing after host dependency installation.'

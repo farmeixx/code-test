@@ -1,0 +1,19 @@
+#!/sbin/openrc-run
+
+description="PulseAudio for Motorola Channel headless root audio"
+command="/usr/bin/pulseaudio"
+command_args="--daemonize=no --exit-idle-time=-1"
+command_background="yes"
+pidfile="/run/pulseaudio-channel.pid"
+
+# Match the root SSH session used for playback and pactl control.
+export HOME=/root
+
+depend() {
+    need localmount
+    after udev-settle
+}
+
+start_pre() {
+    /usr/local/libexec/channel-wait-alsa 30
+}

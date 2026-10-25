@@ -16,8 +16,8 @@ case "${1:-}" in '' ) ;; -h|--help|help) usage; exit 0;; *) usage; exit 2;; esac
 bootstrap_tools
 acquire_lock
 KREL="$(ensure_checkpoint)"
-prepare_repo_branch rootfs
-ROOTFS_SRC="$SOURCES/recipes/rootfs"
+vendor_check rootfs
+ROOTFS_SRC="$RECIPES/rootfs"
 
 KERNEL_CHECKPOINT_DIR="$CHECKPOINT" bash "$ROOTFS_SRC/sh/validate.sh" --basic
 bash "$ROOTFS_SRC/sh/firmware.sh" check

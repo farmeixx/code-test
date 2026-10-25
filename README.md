@@ -14,10 +14,9 @@ Da pasta do builder:
 
 ```sh
 bash test.sh                        # auto-teste da camada (parse + gates)
-bash sh/sources/prepare.sh all    # (opcional) baixa as receitas main + rootfs
 bash sh/build.sh kernel             # compila o mainline (perfil kernel)
 bash sh/build.sh ubuntu             # monta o rootfs a partir do checkpoint
-# tambem: alpine | debian | all | sources | status | help
+# tambem: alpine | debian | all | status | help
 ```
 
 O que cada fase faz:
@@ -39,9 +38,7 @@ O que cada fase faz:
    **1024 MiB ext4 sem compressao**, com SHA256, blkid, e2fsck e metadados
    conferidos. Publica `build/rootfs/<distro>/<distro>-STAMP.ext4`.
 3. **all**: kernel uma vez + os tres rootfs, sequencial.
-4. **sources** (`sh/sources/prepare.sh`): baixa/renova as duas receitas
-   explicitamente (`--update` ff-only; clones existentes nunca sao removidos).
-5. **status**: relatorio local (checkpoint, modulos, ccache, imagens prontas).
+4. **status**: relatorio local (checkpoint, modulos, ccache, imagens prontas).
 
 ## Diretorios
 
@@ -49,7 +46,9 @@ O que cada fase faz:
 sh/mainline/       scripts de kernel
 sh/rootfs/         scripts de Alpine, Debian e Ubuntu
 sh/lib/            helpers commons + gerador raw (python3)
-sources/recipes/   clones main e rootfs do projeto channel
+recipes/           builders upstream VENDORED (main + rootfs); identidade
+                   em recipes/.vendored-from; refresh explicito via
+                   `bash sh/sources/vendor.sh`
 sources/linux/     clone mainline msm8953/latest (persistente)
 sources/mkbootimg/ clone AOSP mkbootimg com SHA fixado
 cache/mainline/modules/     modulos do kernel para os rootfs
@@ -91,30 +90,34 @@ Alem da conf do device, o builder tambem versiona a propria identidade em
 
 Ritual de bump (a base msm8953/latest mudou): edita UMA linha em
 `conf/release.conf` e recompila; o checkpoint antigo e recusado pelos guards
-(comportamento esperado). No lado do repo a mesma label e pinnada via
-`repo:conf/release-label.config` (CONFIG_LOCALVERSION="-mainline" com
-LOCALVERSION_AUTO desligado), entao o build sai deterministicamente com o
-release pinado e o pin local so confirma.
+(comportamento esperado). A mesma label tambem vive vendored em
+`recipes/main/conf/release-label.config` (CONFIG_LOCALVERSION="-mainline" com
+LOCALVERSION_AUTO desligado) e no `KERNEL_PIN_RELEASE` de
+`recipes/main/conf/mainline.conf` — quando o pin do pinned release mudar no
+channel-rootfs, rode `bash sh/sources/vendor.sh`, confirme as duas fontes e
+recompile: o build sai deterministicamente com o release pinado e o pin local
+so confirma.
 
 ## Requisitos
 
 - Distro **apt** em x86_64 (Debian/Ubuntu nativo, Mint/Pop!_OS/Kali/Zorin/
   etc. ou WSL2 Ubuntu); o chain e x86_64 preciso.
 - sudo com senha uma vez em usuario normal; root em container funciona (a
-  camada instala o `sudo` sozinha se faltar, porque os scripts do repo
+  camada instala o `sudo` sozinha se faltar, porque os scripts vendored
   chamam sudo direto).
-- Internet na primeira compilacao (fontes + pacotes; firmware vem vendored
-  no repo) e uns **10+ GB livres** (.work/sources/cache/build).
+- Internet na primeira compilacao (fontes + pacotes; scripts e firmware do
+  device vem vendored no repo) e uns **10+ GB livres**
+  (.work/sources/cache/build).
 - A primeira compilacao de kernel demora (compilacao real, mitigada pelo
   ccache + fontes persistentes); rootfs seguintes reutilizam checkpoint e
   modulos sem recompilar.
 
 ## Testado
 
-- Auto-teste `bash test.sh` (sintaxe bash de todos os scripts, gates de
-  erro, status sem host-dependencia).
+- Auto-teste `bash test.sh` (sintaxe bash de todos os scripts vendored e
+  locais, gates de erro, recipes vendored completos, status sem
+  host-dependencia).
 - GitHub **Codespace** (Ubuntu x86_64 sandbox): teste completo + `--reuse`
-  reportando checkpoint ausente de forma limpa + `prepare.sh` clonando as
-  receitas de verdade no Linux.
+  reportando checkpoint ausente de forma limpa, tudo sem rede para os scripts.
 - Builds de verdade (kernel/rootfs) rodam na SUA maquina Linux, nunca aqui.
 - Nenhuma branch ou workflow do GitHub e modificado.

@@ -1,0 +1,15 @@
+#!/sbin/openrc-run
+
+description="Moto G7 Play USB RNDIS gadget for headless SSH"
+
+depend() {
+    need localmount
+    after modules mdev
+    before dnsmasq usb-sshd
+}
+
+start() {
+    ebegin "Configuring Channel USB RNDIS gadget"
+    /usr/local/sbin/usb-gadget
+    eend $?
+}
