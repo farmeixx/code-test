@@ -87,6 +87,7 @@ out="$(bash -c '
     [ -s "$d/$f" ] || { echo "missing: $f"; miss=1; }
   done
   grep -q "^main=" "$d/recipes/.vendored-from" && grep -q "^rootfs=" "$d/recipes/.vendored-from" || { echo "missing: vendored provenance"; miss=1; }
+  [ ! -e "$d/recipes/rootfs/firmware" ] || { echo "unexpected: firmware blobs are not vendored (firmware.sh clones the GitLab repo)"; miss=1; }
   [ "$miss" -eq 0 ] && echo "ok: vendored recipes complete"
 ' _ "$HERE" 2>&1)"
 rc=$?

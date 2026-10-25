@@ -32,7 +32,9 @@ O que cada fase faz:
    `--reuse` usa o checkpoint pronto sem compilar.
 2. **alpine|debian|ubuntu** (`sh/rootfs/<distro>.sh`): valida o checkpoint
    (basico cedo, completo depois + vermagic), verifica o firmware do device
-   (vendored no repo, sem rede), instala deps do perfil, gera uma **copia
+   (clona o `channel-firmware` do GitLab e confere o SHA256SUMS; offline,
+   aponte `FIRMWARE_SOURCE_DIR` para uma copia local), instala deps do
+   perfil, gera uma **copia
    crua redimensionada** do builder upstream via `sh/lib/raw-rootfs-builder.py`
    (sentinels versionados: nada editado silenciosamente) e monta o rootfs
    **1024 MiB ext4 sem compressao**, com SHA256, blkid, e2fsck e metadados
@@ -104,8 +106,8 @@ release pinado e o pin local so confirma.
 - sudo com senha uma vez em usuario normal; root em container funciona (a
   camada instala o `sudo` sozinha se faltar, porque os scripts vendored
   chamam sudo direto).
-- Internet na primeira compilacao (fontes + pacotes; scripts e firmware do
-  device vem vendored no repo) e uns **10+ GB livres**
+- Internet na primeira compilacao (fontes + pacotes + firmware do device,
+  clonado do GitLab; os scripts vem vendored no repo) e uns **10+ GB livres**
   (.work/sources/cache/build).
 - A primeira compilacao de kernel demora (compilacao real, mitigada pelo
   ccache + fontes persistentes); rootfs seguintes reutilizam checkpoint e

@@ -5,10 +5,10 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ACTION="${1:-check}"
 case "$ACTION" in
   check|install) ;;
-  *) echo "Usage: install.sh check|install [ROOTFS]" >&2; exit 2 ;;
+  *) echo "Usage: firmware.sh check|install [ROOTFS]" >&2; exit 2 ;;
 esac
 if [ "$ACTION" = install ] && { [ "$#" -lt 2 ] || [ ! -d "$2" ] || [ "$2" = / ]; }; then
-  echo "Usage: install.sh install EXISTING_ROOTFS" >&2
+  echo "Usage: firmware.sh install EXISTING_ROOTFS" >&2
   exit 2
 fi
 
@@ -32,21 +32,6 @@ if [ -n "${FIRMWARE_SOURCE_DIR:-}" ]; then
   SOURCE="$(realpath "$FIRMWARE_SOURCE_DIR")"
   ui_step "reusing firmware from $SOURCE"
   test -d "$SOURCE" || { echo "Firmware directory missing: $SOURCE" >&2; exit 1; }
-elif [ -n "${FIRMWARE_LOCAL_PATH:-}" ] && [ -d "$ROOT/$FIRMWARE_LOCAL_PATH" ]; then
-  SOURCE="$(realpath "$ROOT/$FIRMWARE_LOCAL_PATH")"
-  ui_step "reusing firmware from $SOURCE"
-elif [ -n "${FIRMWARE_SOURCE_ARCHIVE:-}" ]; then
-  command -v bsdtar >/dev/null || { echo "RAR input requires bsdtar (libarchive-tools)" >&2; exit 1; }
-  ARCHIVE="$(realpath "$FIRMWARE_SOURCE_ARCHIVE")"
-  test -s "$ARCHIVE"
-  if [ -n "${FIRMWARE_ARCHIVE_SHA256:-}" ]; then
-    printf '%s  %s\n' "$FIRMWARE_ARCHIVE_SHA256" "$ARCHIVE" | sha256sum -c --status -
-  fi
-  SOURCE="$WORK/archive"
-  rm -rf "$SOURCE"
-  mkdir -p "$SOURCE"
-  ui_step "unpacking firmware archive $ARCHIVE"
-  bsdtar -xf "$ARCHIVE" -C "$SOURCE"
 else
   command -v git >/dev/null || { echo 'git required to fetch firmware' >&2; exit 1; }
   SOURCE="$WORK/source"
