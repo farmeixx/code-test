@@ -16,7 +16,7 @@ ALPINE_MIRROR="${ALPINE_MIRROR:-https://dl-cdn.alpinelinux.org/alpine}"
 ALPINE_ARCH="${ALPINE_ARCH:-aarch64}"
 APK_TOOLS_STATIC_VERSION="${APK_TOOLS_STATIC_VERSION:-3.0.8-r0}"
 
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+REPO_ROOT="${REPO_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 WORK_DIR="${WORK_DIR:-$REPO_ROOT/.work}"
 ROOTFS="$WORK_DIR/rootfs"
 KREL="$KERNEL_RELEASE"

@@ -10,7 +10,7 @@ set -euo pipefail
 DISTRO="${DISTRO:-debian}"
 ROOTFS_LABEL="${ROOTFS_LABEL:-debian}"
 
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+REPO_ROOT="${REPO_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 WORK_DIR="${WORK_DIR:-$REPO_ROOT/.work}"
 ROOTFS="$WORK_DIR/rootfs"
 KREL="$KERNEL_RELEASE"
