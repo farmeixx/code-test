@@ -7,6 +7,7 @@ free-space metadata; this layer keeps them and only removes the final zstd
 compression so the local result stays a raw ext4 image.
 """
 from pathlib import Path
+import os
 import re
 import sys
 
@@ -18,13 +19,14 @@ if distro not in ('alpine', 'debian', 'ubuntu') or device not in ('channel', 'sa
     raise SystemExit('Unknown distro/device')
 body = source.read_text()
 
-SIZE_MIB = 1024
+SIZE_MIB = int(os.environ.get('IMAGE_SIZE_MB', '1024'))
 if distro == 'alpine':
     originals = ('IMAGE_MB=1024', 'MIN_FREE_MB=32')
     free_mib, inodes, journal_mib = 32, 16384, 8
 else:
     originals = ('IMAGE_MB=1024', 'MIN_FREE_MB=64')
     free_mib, inodes, journal_mib = 64, 32768, 16
+free_mib = int(os.environ.get('IMAGE_FREE_MIN', free_mib))
 for sentinel in originals:
     if body.count(sentinel) != 1:
         raise SystemExit(f'Unknown upstream image policy: {sentinel!r} in {source}')

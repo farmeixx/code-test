@@ -18,7 +18,6 @@ UBUNTU_BASE_TARBALL="ubuntu-base-${UBUNTU_VERSION}-base-${UBUNTU_ARCH}.tar.gz"
 UBUNTU_BASE_SHA256="${UBUNTU_BASE_SHA256:-5a1906794ced63a71a8119c3f211ef5f0bbe0a243001b4bbd41fdf80c5b219fd}"
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-source "$REPO_ROOT/sh/ui.sh"
 WORK_DIR="${WORK_DIR:-$REPO_ROOT/.work}"
 ROOTFS="$WORK_DIR/rootfs"
 KREL="$KERNEL_RELEASE"
@@ -28,7 +27,6 @@ sudo rm -rf "$ROOTFS"
 
 #------------------------------------------------------------------#
 
-ui_step "fetching Ubuntu Base and installing runtime packages via chroot apt"
 UBUNTU_BASE_PATH="$WORK_DIR/$UBUNTU_BASE_TARBALL"
 curl -fsSL --retry 3 "$UBUNTU_BASE_URL/$UBUNTU_BASE_TARBALL" -o "$UBUNTU_BASE_PATH"
 printf '%s  %s\n' "$UBUNTU_BASE_SHA256" "$UBUNTU_BASE_PATH" | sha256sum -c -
@@ -102,7 +100,6 @@ trap - EXIT
 
 #------------------------------------------------------------------#
 
-ui_step "configuring the headless Ubuntu services, firmware and usb-gadget"
 sudo cp -a "$REPO_ROOT/common/rootfs/." "$ROOTFS/"
 sudo cp -a "$REPO_ROOT/common/systemd/rootfs/." "$ROOTFS/"
 # Install the same Channel-specific UCM2 headphone profile on every distribution.
@@ -171,7 +168,6 @@ sudo mkdir -p "$ROOTFS/var/log/journal"
 
 #------------------------------------------------------------------#
 
-ui_step "installing the reusable mainline kernel modules"
 test -s "$KERNEL_MODULES_ARCHIVE"
 sudo tar -I zstd -xf "$KERNEL_MODULES_ARCHIVE" -C "$ROOTFS"
 test -d "$ROOTFS/lib/modules/$KREL"
@@ -182,7 +178,6 @@ sudo cp "$KERNEL_SYSTEM_MAP_FILE" "$ROOTFS/boot/System.map-$KREL"
 
 #------------------------------------------------------------------#
 
-ui_step "finalizing the Ubuntu rootfs"
 sudo update-binfmts --enable qemu-aarch64 || true
 if [ -x /usr/bin/qemu-aarch64-static ]; then
   sudo install -m 0755 /usr/bin/qemu-aarch64-static "$ROOTFS/usr/bin/qemu-aarch64-static"
@@ -210,7 +205,6 @@ sudo rm -f "$ROOTFS/usr/bin/qemu-aarch64-static"
 
 #------------------------------------------------------------------#
 
-ui_step "creating the 1024 MiB ext4 image and compressing with zstd"
 # Fixed initial ext4 capacity. The user expands / on userdata with resize2fs.
 # A smaller image is only published if ext4 itself reports safe free space.
 USED_MB="$(sudo du -sm "$ROOTFS" | awk '{print $1}')"

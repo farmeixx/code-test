@@ -8,8 +8,6 @@ source "${KERNEL_MAINLINE_CONF:-$ROOT/conf/mainline.conf}"
 : "${KERNEL_BOOT_NAME:?set KERNEL_BOOT_NAME}"
 DTB_FILE="${KERNEL_DTB_FILE:-$OUT_DIR/${KERNEL_DTB##*/}}"
 IMAGE_FILE="${KERNEL_IMAGE:-$OUT_DIR/Image.gz}"
-test -s "$DTB_FILE"
-test -s "$IMAGE_FILE"
 
 #------------------------------------------------------------------#
 
@@ -35,11 +33,5 @@ fi
 
 #------------------------------------------------------------------#
 
-# The boot image is capped by the boot volume limit from mainline.conf.
-BOOT_SIZE="$(stat -c %s "$OUT_DIR/$KERNEL_BOOT_NAME")"
-if [ "$BOOT_SIZE" -gt $((KERNEL_BOOT_SIZE_LIMIT_MIB * 1024 * 1024)) ]; then
-  echo "Boot image too large: $BOOT_SIZE" >&2
-  exit 1
-fi
+# Write the resolved commandline record next to the packed image.
 printf '%s\n' "$KERNEL_CMDLINE" > "$OUT_DIR/kernel-cmdline.txt"
-echo "$KERNEL_BOOT_NAME: $BOOT_SIZE bytes"

@@ -1,124 +1,102 @@
-# channel — builder-deb local (somente compilacao local)
+# channel — builder local (somente compilacao local)
 
-Camada local **full sh** para construir o kernel mainline e os rootfs do
+Camada **full sh** para construir o kernel mainline e os rootfs do
 [farmeixx/channel-rootfs](https://github.com/farmeixx/channel-rootfs) na sua
-propria maquina, em qualquer **distro com apt** (Debian, Ubuntu, Mint,
-Pop!_OS, Kali, Zorin...) em **x86_64**. No Windows: **WSL2**. Sem Actions,
-sem Run ID, sem cloud: clone o repo e rode um comando — as deps do host
-entram pelo apt sozinhas (a conf do device vem do repo, `conf/mainline.conf`,
-`conf/firmware.conf` e `conf/usb.conf`).
+propria maquina, em qualquer **distro com apt** em **x86_64** (no Windows:
+WSL2). Sem Actions, sem CI, sem validacoes: **duas camadas** —
+
+- **local** (`sh/`): fila de comandos, confs e helpers; decide **tudo**;
+- **mirror** (`recipes/`): builders do channel-rootfs vendored como **fork
+  com patches** — so passos funcionais (proveniencia e patches em
+  `recipes/.vendored-from`).
+
+Toda customizacao mora em **4 confs**; os scripts consomem o que esta la.
+Nao existe guard: se algo quebrar, quebra alto no log do run.
 
 ## Compilar
 
-Da pasta do builder:
-
 ```sh
-bash test.sh                        # auto-teste da camada (parse + gates)
-bash sh/build.sh kernel             # compila o mainline (perfil kernel)
-bash sh/build.sh ubuntu             # monta o rootfs a partir do checkpoint
-# tambem: alpine | debian | all | status | help
+bash sh/build.sh kernel              # compila o mainline (checkpoint + modulos)
+bash sh/build.sh ubuntu              # monta o rootfs do checkpoint (alpine|debian|ubuntu)
+bash sh/build.sh all                 # kernel uma vez + DISTROS do rootfs.conf
+bash sh/build.sh status              # reporte local (kernel, modulos, ccache, imagens)
+bash sh/build.sh help
 ```
 
-O que cada fase faz:
+1. **kernel** (`sh/mainline/build.sh`): deps naturais via apt
+   (`recipes/main/sh/deps.sh`: gcc-aarch64 cross, ccache, dtc, zstd...),
+   clone do kernel uma vez em `sources/linux` (GitLab `msm8953/latest`,
+   persistente), fragments + simbolos (`KERNEL_ENABLE_*`) + label via
+   scripts/config, compilacao com ccache persistente, empacotamento do
+   `boot-channel.img` com mkbootimg fixado (AOSP, commit fixado).
+   Publica `cache/mainline/checkpoint/` + copia datada em `build/mainline/`.
+   `--reuse` reporta o checkpoint existente sem compilar.
+2. **rootfs** (`sh/rootfs/build.sh <distro>`): nunca recompila o kernel; usa
+   checkpoint + modulos de `cache/mainline/`, instala o firmware do device
+   (clona o `channel-firmware` do GitLab; offline, aponte
+   `FIRMWARE_SOURCE_DIR` para uma copia local), gera o builder cru da distro
+   via `sh/lib/raw-rootfs-builder.py` e monta o rootfs em
+   `build/rootfs/<distro>/<distro>-STAMP.ext4` + boot.img correspondente.
+3. **all**: kernel uma vez + cada distro de `DISTROS`.
 
-1. **kernel** (`sh/mainline/build.sh`): instala deps automaticas pelo
-   `sh/deps.sh` do repo (perfil kernel: gcc-aarch64 cross, ccache,
-   device-tree-compiler, zstd...), clona o kernel (GitLab `msm8953/latest`) **uma vez** (persistente em
-   `sources/linux`), aplica a conf nova do repo (fragments, simbolos y/m
-   exigidos, DTB, boot e cmdline), compila com ccache persistente, empacota
-   o `boot-channel.img` com mkbootimg fixado, desempacota pra conferir o
-   payload byte-a-byte, valida o checkpoint completo e publica em
-   `cache/mainline/checkpoint/` + copia datada em `build/mainline/`.
-   `--reuse` usa o checkpoint pronto sem compilar.
-2. **alpine|debian|ubuntu** (`sh/rootfs/<distro>.sh`): valida o checkpoint
-   (basico cedo, completo depois + vermagic), verifica o firmware do device
-   (clona o `channel-firmware` do GitLab e confere o SHA256SUMS; offline,
-   aponte `FIRMWARE_SOURCE_DIR` para uma copia local), instala deps do
-   perfil, gera uma **copia
-   crua redimensionada** do builder upstream via `sh/lib/raw-rootfs-builder.py`
-   (sentinels versionados: nada editado silenciosamente) e monta o rootfs
-   **1024 MiB ext4 sem compressao**, com SHA256, blkid, e2fsck e metadados
-   conferidos. Publica `build/rootfs/<distro>/<distro>-STAMP.ext4`.
-3. **all**: kernel uma vez + os tres rootfs, sequencial.
-4. **status**: relatorio local (checkpoint, modulos, ccache, imagens prontas).
+## Os 4 confs (a API de customizacao)
+
+| arquivo | chaves | efeito |
+|---|---|---|
+| `conf/device.conf` | `DEVICE` | nome do device (paths, builds, metadados) |
+| `conf/build.conf` | `JOBS` (vazio = nproc), `CCACHE_MAXSIZE`, `CCACHE_COMPRESS`, `MODULES_ARCHIVE_BASE` | paralelismo, cache C, nome base do tar de modulos |
+| `conf/kernel.conf` | `KERNEL_LOCALVERSION` | label exata do release; aplicada com `CONFIG_LOCALVERSION_AUTO` off (deterministica) |
+| `conf/rootfs.conf` | `IMAGE_SIZE_MB`, `IMAGE_FREE_MIN_ALPINE`, `IMAGE_FREE_MIN_DEBIAN_UBUNTU`, `DISTROS` | tamanho do ext4 cru, minimos livres, ordem do `all` |
+
+A configuracao de device kernel vive em `recipes/main/conf/mainline.conf`
+(`KERNEL_MAINLINE_CONF` sobrepoe o caminho), firmware em
+`recipes/rootfs/conf/firmware.conf` (`FIRMWARE_CONFIG` sobrepoe), USB/rede
+em `recipes/rootfs/conf/usb.conf`.
+
+Ritual de bump de label: mude `KERNEL_LOCALVERSION` em `conf/kernel.conf`,
+recompile. O release sai byte-exato com o conf.
+
+## Atualizar o kernel (manual)
+
+O git e o estado sao seus: atualize o checkout quando quiser e recompile.
+
+```sh
+git -C sources/linux pull --ff-only
+```
+
+(mkbootimg fica fixado no commit de `mainline.conf`.)
+
+## Mirror vendored
+
+`recipes/` e um fork do channel-rootfs retido no repo: logs (`ui_step`/`ui.sh`),
+wrappers e validacoes removidos; `build.sh` do kernel le `KERNEL_LOCALVERSION`
+e `MODULES_ARCHIVE_BASE` do conf local; `firmware.sh` e installer puro (o
+firmware em si agora e clonado do GitLab em tempo de build, para dentro de
+`recipes/rootfs/.work/`, ignorado pelo git). Atualizacao do upstream e manual
+(clone novo + re-aplica o shape) e registra SHAs em `recipes/.vendored-from`.
 
 ## Diretorios
 
 ```text
-sh/mainline/       scripts de kernel
-sh/rootfs/         scripts de Alpine, Debian e Ubuntu
-sh/lib/            helpers commons + gerador raw (python3)
-recipes/           builders upstream VENDORED (main + rootfs), copiados
-                   fixos neste repo; proveniencia em recipes/.vendored-from
-sources/linux/     clone mainline msm8953/latest (persistente)
-sources/mkbootimg/ clone AOSP mkbootimg com SHA fixado
-cache/mainline/modules/     modulos do kernel para os rootfs
-cache/mainline/checkpoint/  kernel, DTB, config e hashes verificados
-cache/mainline/ccache/      cache do compilador
-build/mainline/    <device>-mainline-AAAAMMDDHHMMSS.img e DTB etc
-build/rootfs/<d>/  <distro>-AAAAMMDDHHMMSS.ext4 (cru)
+sh/build.sh          entry point (kernel|distro|all|status|help)
+sh/mainline/         estagio de kernel
+sh/rootfs/           estagio de rootfs (um script, tres distros)
+sh/lib/              helpers + gerador raw rootfs (python3)
+recipes/             builders vendored (fork com patches)
+conf/                os 4 confs
+sources/linux/       clone mainline msm8953/latest (persistente)
+sources/mkbootimg/   clone AOSP mkbootimg com commit fixado
+cache/mainline/      checkpoint + modulos + ccache
+build/mainline/      IMG/DTB/config/modules datados
+build/rootfs/<d>/    EXT4 cru + build-info + boot.img
 ```
-
-## Tamanhos fixos das imagens ext4 (sem compressao)
-
-- Alpine, Debian e Ubuntu: **1024 MiB** (alinhado com o builder upstream
-  atual), minimo livre 32 MiB (Alpine) / 64 MiB (Debian e Ubuntu), inodes e
-  journal conferidos na criacao (16384/8 e 32768/16).
-- O build falha se a imagem nao couber; ele nao corta arquivos silenciosamente.
-- O build do kernel gera um **boot.img Android**, que NAO deve ser gravado
-  como ext4. Detalhes em `TAMANHOS.txt`.
-
-## conf local (nova logica de conf)
-
-O device inteiro vem do repo por **conf, nao por logica fixada em script**:
-
-- Kernel: `conf/mainline.conf` do repo — `KERNEL_MAINLINE_CONF` sobrepoe o
-  caminho (ponha um `.conf` seu nesta pasta `conf/` e exporte a variavel).
-- Firmware: `conf/firmware.conf` do repo — `FIRMWARE_CONFIG` sobrepoe.
-- USB/identidade de rede: `conf/usb.conf` do repo (usado pelos builders).
-
-## Pin do release do kernel (conf do builder)
-
-Alem da conf do device, o builder tambem versiona a propria identidade em
-`conf/` (fail-closed):
-
-- `conf/release.conf` — `KERNEL_RELEASE` + `KERNEL_SUFFIX` pinados (hoje
-  `7.3.0-rc7-mainline`): reuse do checkpoint, pos-compilacao e status conferem
-  o valor e morrem com mensagem clara em qualquer divergencia.
-- `conf/modules.conf` — contrato de extracao (`MODULES_ARCHIVE`,
-  `MODULES_TARGET`, `MODULES_REQUIRED`, `MODULES_SHA_MANIFEST`): os modulos
-  sao conferidos no tar antes de montar qualquer rootfs.
-
-Ritual de bump (a base msm8953/latest mudou): edita UMA linha em
-`conf/release.conf` e recompila; o checkpoint antigo e recusado pelos guards
-(comportamento esperado). A mesma label tambem vive vendored em
-`recipes/main/conf/release-label.config` (CONFIG_LOCALVERSION="-mainline" com
-LOCALVERSION_AUTO desligado) e no `KERNEL_PIN_RELEASE` de
-`recipes/main/conf/mainline.conf`; quando o pin mudar no channel-rootfs,
-atualize as copias vendored (a proveniencia fica em `recipes/.vendored-from`),
-confirme as duas fontes e recompile: o build sai deterministicamente com o
-release pinado e o pin local so confirma.
 
 ## Requisitos
 
-- Distro **apt** em x86_64 (Debian/Ubuntu nativo, Mint/Pop!_OS/Kali/Zorin/
-  etc. ou WSL2 Ubuntu); o chain e x86_64 preciso.
-- sudo com senha uma vez em usuario normal; root em container funciona (a
-  camada instala o `sudo` sozinha se faltar, porque os scripts vendored
-  chamam sudo direto).
-- Internet na primeira compilacao (fontes + pacotes + firmware do device,
-  clonado do GitLab; os scripts vem vendored no repo) e uns **10+ GB livres**
-  (.work/sources/cache/build).
-- A primeira compilacao de kernel demora (compilacao real, mitigada pelo
-  ccache + fontes persistentes); rootfs seguintes reutilizam checkpoint e
-  modulos sem recompilar.
-
-## Testado
-
-- Auto-teste `bash test.sh` (sintaxe bash de todos os scripts vendored e
-  locais, gates de erro, recipes vendored completos, status sem
-  host-dependencia).
-- GitHub **Codespace** (Ubuntu x86_64 sandbox): teste completo + `--reuse`
-  reportando checkpoint ausente de forma limpa, tudo sem rede para os scripts.
-- Builds de verdade (kernel/rootfs) rodam na SUA maquina Linux, nunca aqui.
-- Nenhuma branch ou workflow do GitHub e modificado.
+- Distro **apt** x86_64 (ou WSL2 Ubuntu); chain e x86_64.
+- sudo com senha (root em container tambem funciona: `sudo` e instalado se faltar).
+- Internet na primeira compilacao (fontes + pacotes + firmware do device
+  clonado do GitLab; scripts vendored no repo) e uns **10+ GB livres**.
+- A primeira compilacao demora (mitigada por ccache + fontes persistentes);
+  rootfs seguintes reusam checkpoint e modulos sem recompilar kernel.
+- O `boot.img` Android grava via fastboot; nunca como ext4 dd.

@@ -17,7 +17,6 @@ ALPINE_ARCH="${ALPINE_ARCH:-aarch64}"
 APK_TOOLS_STATIC_VERSION="${APK_TOOLS_STATIC_VERSION:-3.0.8-r0}"
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-source "$REPO_ROOT/sh/ui.sh"
 WORK_DIR="${WORK_DIR:-$REPO_ROOT/.work}"
 ROOTFS="$WORK_DIR/rootfs"
 KREL="$KERNEL_RELEASE"
@@ -32,7 +31,6 @@ sudo mkdir -p "$ROOTFS"
 
 #------------------------------------------------------------------#
 
-ui_step "fetching and unpacking the Alpine minirootfs base"
 curl -fsSL --retry 3 "$MINIROOTFS_URL" -o "$MINIROOTFS_PATH"
 curl -fsSL --retry 3 "$MINIROOTFS_URL.sha256" -o "$MINIROOTFS_SHA_PATH"
 (
@@ -105,7 +103,6 @@ sudo chroot "$ROOTFS" /usr/sbin/update-ca-certificates
 
 #------------------------------------------------------------------#
 
-ui_step "configuring the headless Alpine services, firmware and usb-gadget"
 sudo cp -a "$REPO_ROOT/distros/alpine/rootfs/." "$ROOTFS/"
 sudo cp -a "$REPO_ROOT/common/rootfs/." "$ROOTFS/"
 # Install the same Channel-specific UCM2 headphone profile on every distribution.
@@ -203,7 +200,6 @@ sudo install -d -m 0755 "$ROOTFS/var/log"
 
 #------------------------------------------------------------------#
 
-ui_step "installing the reusable mainline kernel modules"
 test -s "$KERNEL_MODULES_ARCHIVE"
 sudo tar -I zstd -xf "$KERNEL_MODULES_ARCHIVE" -C "$ROOTFS"
 test -d "$ROOTFS/lib/modules/$KREL"
@@ -214,7 +210,6 @@ sudo cp "$KERNEL_SYSTEM_MAP_FILE" "$ROOTFS/boot/System.map-$KREL"
 
 #------------------------------------------------------------------#
 
-ui_step "finalizing the Alpine rootfs"
 sudo chroot "$ROOTFS" /usr/sbin/sshd -t
 
 # qemu-aarch64-static is a host-side helper and must not ship in the target image.
@@ -227,7 +222,6 @@ trap - EXIT
 
 #------------------------------------------------------------------#
 
-ui_step "creating the 1024 MiB ext4 image and compressing with zstd"
 # Remove apk's download/index cache, not installed packages, Wi-Fi firmware, or kernel modules.
 # The existing gadget, NetworkManager and SSH configuration are kept intact.
 if [ -d "$ROOTFS/var/cache/apk" ]; then

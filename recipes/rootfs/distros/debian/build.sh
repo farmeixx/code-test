@@ -11,7 +11,6 @@ DISTRO="${DISTRO:-debian}"
 ROOTFS_LABEL="${ROOTFS_LABEL:-debian}"
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-source "$REPO_ROOT/sh/ui.sh"
 WORK_DIR="${WORK_DIR:-$REPO_ROOT/.work}"
 ROOTFS="$WORK_DIR/rootfs"
 KREL="$KERNEL_RELEASE"
@@ -25,7 +24,6 @@ sudo rm -rf "$ROOTFS"
 
 #------------------------------------------------------------------#
 
-ui_step "bootstrapping the Debian trixie arm64 rootfs with mmdebstrap"
 sudo mmdebstrap \
   --architectures=arm64 \
   --variant=minbase \
@@ -37,7 +35,6 @@ sudo mmdebstrap \
 
 #------------------------------------------------------------------#
 
-ui_step "configuring the headless Debian services, firmware and usb-gadget"
 sudo cp -a "$REPO_ROOT/common/rootfs/." "$ROOTFS/"
 sudo cp -a "$REPO_ROOT/common/systemd/rootfs/." "$ROOTFS/"
 # Install the same Channel-specific UCM2 headphone profile on every distribution.
@@ -93,7 +90,6 @@ sudo mkdir -p "$ROOTFS/var/log/journal"
 
 #------------------------------------------------------------------#
 
-ui_step "installing the reusable mainline kernel modules"
 sudo tar -I zstd -xf "$KERNEL_MODULES_ARCHIVE" -C "$ROOTFS"
 test -d "$ROOTFS/lib/modules/$KREL"
 sudo depmod -b "$ROOTFS" "$KREL"
@@ -103,7 +99,6 @@ sudo cp "$KERNEL_SYSTEM_MAP_FILE" "$ROOTFS/boot/System.map-$KREL"
 
 #------------------------------------------------------------------#
 
-ui_step "validating the Debian rootfs in a mounted chroot"
 sudo update-binfmts --enable qemu-aarch64 || true
 if [ -x /usr/bin/qemu-aarch64-static ]; then
   sudo install -m 0755 /usr/bin/qemu-aarch64-static "$ROOTFS/usr/bin/qemu-aarch64-static"
@@ -135,7 +130,6 @@ sudo rm -f "$ROOTFS/usr/bin/qemu-aarch64-static"
 
 #------------------------------------------------------------------#
 
-ui_step "creating the 1024 MiB ext4 image and compressing with zstd"
 # Fixed initial ext4 capacity. The user expands / on userdata with resize2fs.
 # A smaller image is only published if ext4 itself reports safe free space.
 USED_MB="$(sudo du -sm "$ROOTFS" | awk '{print $1}')"

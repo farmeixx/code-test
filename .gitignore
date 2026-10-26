@@ -1,9 +1,6 @@
 # local builder artifacts never go back to git
-build/*
-!build/README.md
-cache/*
-!cache/README.md
-sources/*
-!sources/README.md
-# runtime scratch (e.g. the firmware clone under recipes/rootfs/.work)
+build/
+cache/
+sources/
+# runtime scratch inside vendored trees (e.g. the firmware clone in recipes/rootfs/.work)
 .work/
