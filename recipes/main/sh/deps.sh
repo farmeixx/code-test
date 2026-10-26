@@ -71,7 +71,7 @@ install_host_deps() {
       # made the run die at the very first HOSTCC (Error 127).
       packages+=(make bc bison flex ccache gcc gcc-aarch64-linux-gnu
         libc6-dev-arm64-cross libc6-arm64-cross linux-libc-dev-arm64-cross
-        device-tree-compiler libssl-dev libelf-dev dwarves python3 gzip zstd file)
+        device-tree-compiler libssl-dev libelf-dev dwarves python3 gzip zstd file kmod)
       ;;
     alpine|debian|ubuntu)
       packages+=(rsync cpio gzip xz-utils zstd e2fsprogs
@@ -83,7 +83,7 @@ install_host_deps() {
     *) echo "Unknown dependency profile: $profile" >&2; return 2;;
   esac
   sudo apt-get update
-  sudo apt-get install -y --no-install-recommends "${packages[@]}"
+  sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" "${packages[@]}"
   if [ "$profile" != kernel ]; then
     ensure_aarch64_binfmt
     if [ "$profile" != alpine ]; then arch-test arm64; fi
