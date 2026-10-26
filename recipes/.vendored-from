@@ -10,7 +10,7 @@
 # orchestrator (sh/mainline/build.sh, sh/rootfs/build.sh) owns sources,
 # cache and build layout, with the raw-ext4 generator in sh/lib/.
 repo=https://github.com/farmeixx/channel-rootfs
-main=23bc4c0fb5fc2790f5a695124c0676ecc3a1e529
-rootfs=920d6d3dccb0b1ea74e506eb20c3c25601188e8f
+main=8d978320f95afe8e4334b4d5719f6bd5df7dae97
+rootfs=7463854f7ae28595845564b503c9ac00b23d2bdc
 main-paths=sh conf
 rootfs-paths=distros sh conf audio common
