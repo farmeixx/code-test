@@ -64,7 +64,12 @@ install_host_deps() {
   local packages=(git ca-certificates curl)
   case "$profile" in
     kernel)
-      packages+=(make bc bison flex gcc-aarch64-linux-gnu
+      # Native host gcc belongs to this profile beside the cross compiler:
+      # kbuild HOSTCC compiles scripts/basic/fixdep and the kconfig host
+      # tools with the native compiler before any arm64 source is touched,
+      # and fresh Debian/Ubuntu hosts ship without gcc installed, which
+      # made the run die at the very first HOSTCC (Error 127).
+      packages+=(make bc bison flex ccache gcc gcc-aarch64-linux-gnu
         libc6-dev-arm64-cross libc6-arm64-cross linux-libc-dev-arm64-cross
         device-tree-compiler libssl-dev libelf-dev dwarves python3 gzip zstd file)
       ;;
