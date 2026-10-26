@@ -1,18 +1,16 @@
 # The upstream builders are VENDORED here (no runtime fetch). This file records
 # exactly which channel-rootfs state each vendored tree corresponds to.
 # To move to a newer channel-rootfs state: replace the trees manually and
-# update the SHAs below. Firmware is NOT vendored anymore: the rootfs recipes
+# update the SHAs below. Firmware is NOT vendored: the vendored rootfs recipes
 # clone the GitLab channel-firmware repo at build time; a local tree can be
 # used offline via FIRMWARE_SOURCE_DIR.
-# The vendored copies are a FORK WITH LOCAL PATCHES:
-#   - logs (sh/ui.sh and every ui_step call) removed
-#   - validation/wrapper scripts (run.sh, validate.sh, check-*.sh,
-#     fetch-kernel.sh) removed; only the functional build steps remain
-#   - build.sh reads KERNEL_LOCALVERSION (label re-assert) and
-#     MODULES_ARCHIVE_BASE (modules tar name) from the local builder confs
-#   - firmware.sh is install-only (no sh/ui.sh, no pre-checks)
+# Upstream itself now carries the lean shape (zero validations, no logs, conf
+# API). The vendored copies additionally mirror the LOCAL two-layer split:
+# the kernel make/pack stage (sh/build.sh) is param-driven and the local
+# orchestrator (sh/mainline/build.sh, sh/rootfs/build.sh) owns sources,
+# cache and build layout, with the raw-ext4 generator in sh/lib/.
 repo=https://github.com/farmeixx/channel-rootfs
-main=3f36a990815dfbd5fea04880d5ee32560c01ac5d
-rootfs=c639d5cda8a8509fbdcf3d5476e9dd3ba5ef680d
+main=23bc4c0fb5fc2790f5a695124c0676ecc3a1e529
+rootfs=920d6d3dccb0b1ea74e506eb20c3c25601188e8f
 main-paths=sh conf
 rootfs-paths=distros sh conf audio common

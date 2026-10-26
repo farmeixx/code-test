@@ -68,12 +68,13 @@ git -C sources/linux pull --ff-only
 
 ## Mirror vendored
 
-`recipes/` e um fork do channel-rootfs retido no repo: logs (`ui_step`/`ui.sh`),
-wrappers e validacoes removidos; `build.sh` do kernel le `KERNEL_LOCALVERSION`
-e `MODULES_ARCHIVE_BASE` do conf local; `firmware.sh` e installer puro (o
-firmware em si agora e clonado do GitLab em tempo de build, para dentro de
-`recipes/rootfs/.work/`, ignorado pelo git). Atualizacao do upstream e manual
-(clone novo + re-aplica o shape) e registra SHAs em `recipes/.vendored-from`.
+`recipes/` espelha o channel-rootfs lean (os branches main/rootfs do GitHub já
+carregam o próprio v3): sem logs (`ui_step`/`ui.sh`), sem wrappers, sem
+validações; `build.sh` do kernel lê `KERNEL_LOCALVERSION` e
+`MODULES_ARCHIVE_BASE`; `firmware.sh` é installer-only; o firmware em si é
+clonado do GitLab em tempo de build (para `recipes/rootfs/.work/`, ignorado
+pelo git). Atualização do upstream é manual (clone novo + copia) e registra
+SHAs em `recipes/.vendored-from`.
 
 ## Diretorios
 
