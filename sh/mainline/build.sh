@@ -7,6 +7,7 @@ usage(){ cat <<EOF
 Usage: bash sh/mainline/build.sh [--reuse|--force|--help]
 
 Default: build kernel from local sources (clone on first use); ccache enabled.
+--force: explicit alias for a regular build (always recompiles, like the default).
 --reuse: report the existing kernel checkpoint; do not compile.
 To update kernel SOURCE: git -C sources/linux pull --ff-only (then build again).
 Outputs: build/mainline/<device>-mainline-YYYYMMDDHHMMSS.img + DTB, config,
@@ -104,6 +105,7 @@ cp "$STAGE/$ARCHIVE"               "$DEST/$BASE.modules.tar.zst"
 cp "$STAGE/kernel-info.txt"        "$DEST/$BASE.kernel-info.txt"
 cp "$STAGE/kernel-cmdline.txt"     "$DEST/$BASE.kernel-cmdline.txt"
 cp "$STAGE/source-report.txt"      "$DEST/$BASE.source-report.txt"
+(cd "$DEST" && sha256sum "$BASE.img" "$BASE.dtb" "$BASE.Image.gz" "$BASE.config" "$BASE.System.map" "$BASE.modules.tar.zst" "$BASE.kernel-info.txt" "$BASE.kernel-cmdline.txt" "$BASE.source-report.txt" > "$BASE.SHA256SUMS")
 
 # Publish the module set separately, keyed by source sha and release.
 MOD_PATH="$MODULE_CACHE/$SOURCE_SHA/$KREL"
