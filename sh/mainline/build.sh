@@ -41,7 +41,9 @@ export KERNEL_MAINLINE_CONF="$CONF_PATH"
 source "$CONF_PATH"
 
 # Persistent compiler cache, shared between every rebuild.
-export CCACHE_DIR="$CACHE/mainline/ccache" CCACHE_MAXSIZE="${CCACHE_MAXSIZE:-2G}" CCACHE_COMPRESS="${CCACHE_COMPRESS:-true}"
+export CCACHE_DIR="$CACHE/mainline/ccache" \
+  CCACHE_MAXSIZE="${CCACHE_MAXSIZE:-2G}" \
+  CCACHE_COMPRESS="${CCACHE_COMPRESS:-true}"
 mkdir -p "$CCACHE_DIR" "$MODULE_CACHE" "$BUILDS/mainline" "$CACHE/mainline"
 ccache --max-size "$CCACHE_MAXSIZE"
 BIN="$CACHE/mainline/ccache-bin"
@@ -105,7 +107,9 @@ cp "$STAGE/$ARCHIVE"               "$DEST/$BASE.modules.tar.zst"
 cp "$STAGE/kernel-info.txt"        "$DEST/$BASE.kernel-info.txt"
 cp "$STAGE/kernel-cmdline.txt"     "$DEST/$BASE.kernel-cmdline.txt"
 cp "$STAGE/source-report.txt"      "$DEST/$BASE.source-report.txt"
-(cd "$DEST" && sha256sum "$BASE.img" "$BASE.dtb" "$BASE.Image.gz" "$BASE.config" "$BASE.System.map" "$BASE.modules.tar.zst" "$BASE.kernel-info.txt" "$BASE.kernel-cmdline.txt" "$BASE.source-report.txt" > "$BASE.SHA256SUMS")
+(cd "$DEST" && sha256sum "$BASE.img" "$BASE.dtb" "$BASE.Image.gz" "$BASE.config" \
+  "$BASE.System.map" "$BASE.modules.tar.zst" "$BASE.kernel-info.txt" \
+  "$BASE.kernel-cmdline.txt" "$BASE.source-report.txt" > "$BASE.SHA256SUMS")
 
 # Publish the module set separately, keyed by source sha and release.
 MOD_PATH="$MODULE_CACHE/$SOURCE_SHA/$KREL"
