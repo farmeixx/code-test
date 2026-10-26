@@ -29,18 +29,31 @@ else
   echo "Firmware commit: $(git -C "$SOURCE" rev-parse HEAD)"
 fi
 
+# Verify what was fetched before installing anything: every required file
+# must exist, and the upstream SHA256SUMS (present in the cloned repo)
+# must check out. A local FIRMWARE_SOURCE_DIR tree without SHA256SUMS
+# keeps working on the required-file check alone, so offline builds that
+# reuse a partial tree are not broken by this step.
+for req in "${FIRMWARE_REQUIRED[@]:-}"; do
+  [ -n "$req" ] || continue
+  [ -s "$SOURCE/$req" ] || { echo "ERROR: missing required firmware: $req" >&2; exit 1; }
+done
+if [ -s "$SOURCE/SHA256SUMS" ]; then
+  (cd "$SOURCE" && sha256sum -c SHA256SUMS) || { echo 'ERROR: firmware SHA256SUMS verification failed.' >&2; exit 1; }
+fi
+
 # Install directories and aliases straight from the source tree.
 TARGET="$(realpath "$2")"
 DEST="$TARGET$FIRMWARE_DEST"
 sudo install -d -m 0755 "$DEST"
 for pair in "${FIRMWARE_DIRS[@]}"; do
   IFS='|' read -r from to <<< "$pair"
-  [ "$from" != /* ] && [ "$to" != /* ] || exit 1
+  [[ "$from" != /* && "$to" != /* ]] || { echo "ERROR: firmware paths must be relative: $from -> $to" >&2; exit 1; }
   sudo install -d -m 0755 "$DEST/$to"
   sudo cp -a "$SOURCE/$from/." "$DEST/$to/"
 done
 for pair in "${FIRMWARE_ALIASES[@]}"; do
   IFS='|' read -r from to <<< "$pair"
-  [ "$from" != /* ] && [ "$to" != /* ] || exit 1
+  [[ "$from" != /* && "$to" != /* ]] || { echo "ERROR: firmware paths must be relative: $from -> $to" >&2; exit 1; }
   sudo install -D -m 0644 "$SOURCE/$from" "$DEST/$to"
 done
