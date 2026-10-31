@@ -251,8 +251,8 @@ if [ -d "$ROOTFS/var/cache/apk" ]; then
 fi
 
 USED_MB="$(sudo du -sm "$ROOTFS" | awk '{print $1}')"
-IMAGE_MB="${IMAGE_SIZE_MB:-1024}"
-MIN_FREE_MB="${IMAGE_FREE_MIN:-32}"
+IMAGE_MB=1024
+MIN_FREE_MB=32
 echo "Alpine staged rootfs: ${USED_MB} MiB; image target: ${IMAGE_MB} MiB; required free space: ${MIN_FREE_MB} MiB"
 
 ROOTFS_IMG="$OUT_DIR/alpine-channel-rootfs.ext4"

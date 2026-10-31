@@ -133,8 +133,8 @@ sudo rm -f "$ROOTFS/usr/bin/qemu-aarch64-static"
 # Fixed initial ext4 capacity. The user expands / on userdata with resize2fs.
 # A smaller image is only published if ext4 itself reports safe free space.
 USED_MB="$(sudo du -sm "$ROOTFS" | awk '{print $1}')"
-IMAGE_MB="${IMAGE_SIZE_MB:-1024}"
-MIN_FREE_MB="${IMAGE_FREE_MIN:-64}"
+IMAGE_MB=1024
+MIN_FREE_MB=64
 echo "debian: staged rootfs ${USED_MB} MiB; target ${IMAGE_MB} MiB; minimum free ${MIN_FREE_MB} MiB"
 
 ROOTFS_IMG="$OUT_DIR/debian-channel-rootfs.ext4"
