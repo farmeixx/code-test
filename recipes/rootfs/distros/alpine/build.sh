@@ -40,7 +40,6 @@ if [ -z "${APK_TOOLS_STATIC_VERSION:-}" ]; then
 fi
 
 REPO_ROOT="${REPO_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
-DISTRO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WORK_DIR="${WORK_DIR:-$REPO_ROOT/.work}"
 ROOTFS="$WORK_DIR/rootfs"
 KREL="$KERNEL_RELEASE"
@@ -128,7 +127,7 @@ sudo chroot "$ROOTFS" /usr/sbin/update-ca-certificates
 
 #------------------------------------------------------------------#
 
-sudo cp -a "$DISTRO_DIR/rootfs/." "$ROOTFS/"
+sudo cp -a "$REPO_ROOT/distros/alpine/rootfs/." "$ROOTFS/"
 test -s "$ROOTFS/usr/share/alsa/ucm2/conf.d/motorola-channe/motorola-channe.conf"
 test -s "$ROOTFS/usr/share/alsa/ucm2/conf.d/motorola-channe/pulseaudio.conf"
 # Wait for the mainline ALSA card before starting the headless PulseAudio service.
