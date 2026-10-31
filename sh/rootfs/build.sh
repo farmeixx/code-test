@@ -20,6 +20,25 @@ MODULES="$(cat "$MODULE_CACHE/current.txt")"
 ROOTFS_SRC="$RECIPES/rootfs"
 
 source "$ROOTFS_SRC/sh/deps.sh"
+
+# The per-distro rootfs trees carry their own copies of the shared overlay
+# files; they must stay identical across the distros (intentional
+# differences belong in distro-specific files).
+for shared in \
+    etc/NetworkManager/conf.d/10-channel.conf \
+    usr/local/sbin/channel-grow-rootfs \
+    usr/local/sbin/channel-zram-swap \
+    usr/local/libexec/channel-wait-alsa \
+    usr/share/alsa/ucm2/conf.d/motorola-channe/motorola-channe.conf \
+    usr/share/alsa/ucm2/conf.d/motorola-channe/pulseaudio.conf; do
+  ref="$ROOTFS_SRC/distros/alpine/rootfs/$shared"
+  for other in "$ROOTFS_SRC/distros/debian/rootfs" "$ROOTFS_SRC/distros/ubuntu/rootfs"; do
+    if ! diff -q "$ref" "$other/$shared" >/dev/null 2>&1; then
+      echo "ERROR: shared overlay drifted: $other/$shared differs from $ref" >&2
+      exit 1
+    fi
+  done
+done
 install_host_deps "$DISTRO"
 
 # Image policy from conf/rootfs.conf, consumed by the raw generator.
