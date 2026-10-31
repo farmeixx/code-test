@@ -98,6 +98,7 @@ sudo "$APK_STATIC" \
     openssl \
     alsa-lib alsa-utils alsa-ucm-conf \
     parted e2fsprogs-extra tzdata \
+    e2fsprogs-extra tzdata \
     pulseaudio pulseaudio-alsa pulseaudio-utils alsa-plugins-pulse
 
 sudo chroot "$ROOTFS" /usr/sbin/update-ca-certificates
