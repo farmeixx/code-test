@@ -11,6 +11,7 @@ DISTRO="${DISTRO:-debian}"
 ROOTFS_LABEL="${ROOTFS_LABEL:-debian}"
 
 REPO_ROOT="${REPO_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
+DISTRO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WORK_DIR="${WORK_DIR:-$REPO_ROOT/.work}"
 ROOTFS="$WORK_DIR/rootfs"
 KREL="$KERNEL_RELEASE"
@@ -35,10 +36,7 @@ sudo mmdebstrap \
 
 #------------------------------------------------------------------#
 
-sudo cp -a "$REPO_ROOT/common/rootfs/." "$ROOTFS/"
-sudo cp -a "$REPO_ROOT/common/systemd/rootfs/." "$ROOTFS/"
-# Install the same Channel-specific UCM2 headphone profile on every distribution.
-sudo cp -a "$REPO_ROOT/audio/rootfs/." "$ROOTFS/"
+sudo cp -a "$DISTRO_DIR/rootfs/." "$ROOTFS/"
 test -s "$ROOTFS/usr/share/alsa/ucm2/conf.d/motorola-channe/motorola-channe.conf"
 test -s "$ROOTFS/usr/share/alsa/ucm2/conf.d/motorola-channe/pulseaudio.conf"
 # Wait for the mainline ALSA card before starting the headless PulseAudio service.
@@ -53,7 +51,7 @@ test -x "$ROOTFS/usr/local/sbin/usb-gadget"
 test -s "$ROOTFS/etc/usb-gadget.conf"
 
 echo 'debconf debconf/frontend select Noninteractive' | sudo chroot "$ROOTFS" debconf-set-selections
-printf '%s\n' channel | sudo tee "$ROOTFS/etc/hostname" >/dev/null
+printf '%s\n' "${DEVICE:-channel}" | sudo tee "$ROOTFS/etc/hostname" >/dev/null
 sudo tee "$ROOTFS/etc/hosts" >/dev/null <<'HOSTS'
 127.0.0.1 localhost
 127.0.1.1 channel
@@ -135,8 +133,8 @@ sudo rm -f "$ROOTFS/usr/bin/qemu-aarch64-static"
 # Fixed initial ext4 capacity. The user expands / on userdata with resize2fs.
 # A smaller image is only published if ext4 itself reports safe free space.
 USED_MB="$(sudo du -sm "$ROOTFS" | awk '{print $1}')"
-IMAGE_MB=1024
-MIN_FREE_MB=64
+IMAGE_MB="${IMAGE_SIZE_MB:-1024}"
+MIN_FREE_MB="${IMAGE_FREE_MIN:-64}"
 echo "debian: staged rootfs ${USED_MB} MiB; target ${IMAGE_MB} MiB; minimum free ${MIN_FREE_MB} MiB"
 
 ROOTFS_IMG="$OUT_DIR/debian-channel-rootfs.ext4"

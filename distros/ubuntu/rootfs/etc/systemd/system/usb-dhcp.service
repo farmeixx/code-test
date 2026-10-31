@@ -1,0 +1,13 @@
+[Unit]
+Description=DHCP server for Moto G7 Play USB RNDIS link
+Requires=usb-gadget.service
+After=usb-gadget.service
+
+[Service]
+Type=simple
+ExecStart=/usr/sbin/dnsmasq --keep-in-foreground --port=0 --no-resolv --no-hosts --interface=usb0 --bind-interfaces --dhcp-authoritative --dhcp-range=172.16.42.2,172.16.42.20,255.255.255.0,12h --dhcp-option=3 --dhcp-option=6
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

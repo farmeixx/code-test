@@ -40,6 +40,7 @@ if [ -z "${APK_TOOLS_STATIC_VERSION:-}" ]; then
 fi
 
 REPO_ROOT="${REPO_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
+DISTRO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WORK_DIR="${WORK_DIR:-$REPO_ROOT/.work}"
 ROOTFS="$WORK_DIR/rootfs"
 KREL="$KERNEL_RELEASE"
@@ -127,10 +128,7 @@ sudo chroot "$ROOTFS" /usr/sbin/update-ca-certificates
 
 #------------------------------------------------------------------#
 
-sudo cp -a "$REPO_ROOT/distros/alpine/rootfs/." "$ROOTFS/"
-sudo cp -a "$REPO_ROOT/common/rootfs/." "$ROOTFS/"
-# Install the same Channel-specific UCM2 headphone profile on every distribution.
-sudo cp -a "$REPO_ROOT/audio/rootfs/." "$ROOTFS/"
+sudo cp -a "$DISTRO_DIR/rootfs/." "$ROOTFS/"
 test -s "$ROOTFS/usr/share/alsa/ucm2/conf.d/motorola-channe/motorola-channe.conf"
 test -s "$ROOTFS/usr/share/alsa/ucm2/conf.d/motorola-channe/pulseaudio.conf"
 # Wait for the mainline ALSA card before starting the headless PulseAudio service.
@@ -150,7 +148,7 @@ sudo chmod 0755 \
 
 sudo install -d -m 0755 "$ROOTFS/etc/ssh/sshd_config.d"
 
-printf '%s\n' channel | sudo tee "$ROOTFS/etc/hostname" >/dev/null
+printf '%s\n' "${DEVICE:-channel}" | sudo tee "$ROOTFS/etc/hostname" >/dev/null
 sudo tee "$ROOTFS/etc/hosts" >/dev/null <<'EOF'
 127.0.0.1 localhost
 127.0.1.1 channel
@@ -253,8 +251,8 @@ if [ -d "$ROOTFS/var/cache/apk" ]; then
 fi
 
 USED_MB="$(sudo du -sm "$ROOTFS" | awk '{print $1}')"
-IMAGE_MB=1024
-MIN_FREE_MB=32
+IMAGE_MB="${IMAGE_SIZE_MB:-1024}"
+MIN_FREE_MB="${IMAGE_FREE_MIN:-32}"
 echo "Alpine staged rootfs: ${USED_MB} MiB; image target: ${IMAGE_MB} MiB; required free space: ${MIN_FREE_MB} MiB"
 
 ROOTFS_IMG="$OUT_DIR/alpine-channel-rootfs.ext4"

@@ -1,0 +1,16 @@
+[Unit]
+Description=PulseAudio for Motorola Channel headless root audio
+After=local-fs.target systemd-udev-trigger.service
+
+[Service]
+Type=simple
+User=root
+Environment=HOME=/root
+ExecStartPre=/usr/local/libexec/channel-wait-alsa 30
+ExecStart=/usr/bin/pulseaudio --daemonize=no --exit-idle-time=-1
+Restart=on-failure
+RestartSec=3
+TimeoutStartSec=40
+
+[Install]
+WantedBy=multi-user.target
