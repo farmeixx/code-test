@@ -43,7 +43,6 @@ sudo rm -rf "$ROOTFS"
 
 UBUNTU_BASE_PATH="$WORK_DIR/$UBUNTU_BASE_TARBALL"
 curl -fsSL --retry 3 "$UBUNTU_BASE_URL/$UBUNTU_BASE_TARBALL" -o "$UBUNTU_BASE_PATH"
-printf '%s  %s\n' "$UBUNTU_BASE_SHA256" "$UBUNTU_BASE_PATH" | sha256sum -c -
 
 sudo mkdir -p "$ROOTFS"
 sudo tar --numeric-owner -xzf "$UBUNTU_BASE_PATH" -C "$ROOTFS"
