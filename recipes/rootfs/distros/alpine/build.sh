@@ -97,7 +97,6 @@ sudo "$APK_STATIC" \
     wpa_supplicant wireless-regdb \
     openssl \
     alsa-lib alsa-utils alsa-ucm-conf \
-    parted e2fsprogs-extra tzdata \
     e2fsprogs-extra tzdata \
     pulseaudio pulseaudio-alsa pulseaudio-utils alsa-plugins-pulse
 

@@ -90,7 +90,7 @@ sudo chroot "$ROOTFS" /bin/sh -ec '
     less nano ethtool iw \
     wpasupplicant wireless-regdb \
     alsa-utils alsa-ucm-conf libasound2-plugins \
-    parted tzdata \
+    tzdata \
     pulseaudio pulseaudio-utils
   apt-get clean
   rm -rf /var/lib/apt/lists/*
